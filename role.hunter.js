@@ -15,9 +15,9 @@ module.exports = {
         //console.log(Game.flags['Flag1']);
         //creep.moveTo(Game.flags['Flag1'], {visualizePathStyle: {stroke: '#ffaa00'}});
 
-        var ennemi = creep.room.find(FIND_HOSTILE_CREEPS);
+        var ennemi = creep.room.find(FIND_HOSTILE_STRUCTURES);
         ennemifocus = creep.pos.findClosestByRange(ennemi);
-        //ennemi = Game.getObjectById('604bebcad4bed2a6170945b6');
+        //ennemifocus = Game.getObjectById('604e2dc6d4bed222b0096128');
         //5bbcad509099fc012e6371a6
         //creep.attack(ennemis[0]);
         //creep.moveTo(ennemi, {visualizePathStyle: {stroke: '#ffaa00'}});
@@ -25,7 +25,7 @@ module.exports = {
         if(creep.rangedAttack(ennemifocus) == -9){
             creep.moveTo(ennemifocus, {visualizePathStyle: {stroke: '#ffaa00'}});
         }else if (creep.rangedAttack(ennemifocus) < 0){
-            creep.moveTo(Game.flags['Flag3'], {visualizePathStyle: {stroke: '#ffaa00'}});
+            creep.moveTo(ennemifocus, {visualizePathStyle: {stroke: '#ffaa00'}});
         }
         //console.log();
     }

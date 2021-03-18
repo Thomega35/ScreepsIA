@@ -8,7 +8,7 @@ var roleUpgrader = {
             creep.memory.upgrading = false;
             creep.say('🔄 harvest');
         }
-        if(!creep.memory.upgrading && creep.store.getFreeCapacity() == 0) {
+        if(!creep.memory.upgrading && creep.store.getFreeCapacity() <= 0) {
             creep.memory.upgrading = true;
             creep.say('⚡ upgrade');
         }
@@ -19,11 +19,26 @@ var roleUpgrader = {
             }
         }
         else {
-            var sources = creep.room.find(FIND_SOURCES_ACTIVE);
-            var source = sources[sources.length-1];
-            if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+            /*var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
+            //console.log(dropEnergies);*
+            //TODO prendre energie spawn
+            if (dropEnergies.length >= 1){
+                var source = creep.pos.findClosestByRange(dropEnergies);
+                if(creep.pickup(source) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+            }else{*/
+            var depots = creep.room.find(FIND_STRUCTURES,{
+                filter: (structure) => {
+                    return (structure.structureType == STRUCTURE_STORAGE &&
+                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 80000);
+                }
+            });
+            var source = creep.pos.findClosestByRange(depots);
+            if(creep.withdraw(source, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
             }
+            //}
         }
     }
 };

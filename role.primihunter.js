@@ -52,10 +52,6 @@ module.exports = {
         // }
         
         
-        
-        
-        
-        
         /*if (creep.pos.isEqualTo(checkpoint)){
             creep.memory.role = 'hunter';
         }*/

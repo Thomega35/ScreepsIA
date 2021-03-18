@@ -2,35 +2,66 @@ var roleHarvester = {
 
     /** @param {Creep} creep **/
     run: function(creep) {
-
-        var emptying = false;
-        if (Game.spawns['Spawn1'].room.energyAvailable < Game.spawns['Spawn1'].room.energyCapacityAvailable){
-            if (creep.store.getCapacity == 0){
-                emptying = false;
+        
+        //emptying true = Depense ses ressources
+        
+        console.log(creep.room)
+        console.log(creep.memory.workroom)
+        console.log(creep.room == creep.memory.workroom)
+        
+        var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
+        var source = creep.pos.findClosestByRange(dropEnergies); 
+        if (dropEnergies.length >= 0 || creep.memory.emptying){
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
+                creep.memory.emptying = false;
             }
-            if(emptying || creep.store.getFreeCapacity() > 0) {
-                emptying = true;
-                var sources = creep.room.find(FIND_SOURCES_ACTIVE);
+            if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0){
+                creep.memory.emptying = true;
+            }
+            
+            if(!creep.memory.emptying) {
                 //recolte de la ressource
-                if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+                if(creep.pickup(source) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
                 }
-            }
-            else {
+                if(source == null){
+                    var depots = creep.room.find(FIND_STRUCTURES,{
+                        filter: (structure) => {
+                            return (structure.structureType == STRUCTURE_STORAGE);
+                        }
+                    });
+                    source = creep.pos.findClosestByRange(depots);
+                    if(creep.withdraw(source, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
+                    }
+                }
+            }else {
                 var targets = creep.room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
                         return (structure.structureType == STRUCTURE_EXTENSION ||
-                            structure.structureType == STRUCTURE_SPAWN ||
-                            structure.structureType == STRUCTURE_TOWER) &&
+                            structure.structureType == STRUCTURE_SPAWN) &&
                             structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
                     }
                 });
-                targets.push();
-                if(targets.length > 0) {
-                    //dépot de la ressource
-                    if(creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                        creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
-                    }
+                if(targets.length <= 0) {
+                    var targets = creep.room.find(FIND_STRUCTURES, {
+                        filter: (structure) => {
+                            return (structure.structureType == STRUCTURE_TOWER&&
+                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0);
+                        }
+                    });
+                }
+                if(targets.length <= 0) {
+                    var targets = creep.room.find(FIND_STRUCTURES, {
+                        filter: (structure) => {
+                            return (structure.structureType == STRUCTURE_STORAGE);
+                        }
+                    });
+                }
+                var target = creep.pos.findClosestByRange(targets);
+                //dépot de la ressource
+                if(creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
                 }
             }
             //en pause
@@ -39,5 +70,4 @@ var roleHarvester = {
         }
     }
 };
-//test
 module.exports = roleHarvester;
