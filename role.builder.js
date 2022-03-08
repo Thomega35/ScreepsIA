@@ -58,10 +58,20 @@ var roleBuilder = {
             // }
         //SI LE CREEP CHERCHE DE L ENERGIE
         }else {
-            var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
+            /*var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
             var source = creep.pos.findClosestByRange(dropEnergies); 
             var sources = creep.room.find(FIND_SOURCES_ACTIVE);
             if(creep.pickup(source) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
+            }*/
+            var depots = creep.room.find(FIND_STRUCTURES,{
+                filter: (structure) => {
+                    return (structure.structureType == STRUCTURE_SPAWN);/*STRUCTURE_STORAGE &&
+                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 80000)*/
+                }
+            });
+            var source = creep.pos.findClosestByRange(depots);
+            if(creep.withdraw(source, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source , {visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }

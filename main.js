@@ -1,107 +1,146 @@
-global.roleHarvester = require('role.harvester');
-global.roleUpgrader = require('role.upgrader');
-global.roleUpgrader2 = require('role.upgrader2');
-global.roleBuilder = require('role.builder');
-global.roleHunter = require('role.hunter');
-global.rolePrimihunter = require('role.primihunter');
-global.roleMiner = require('role.miner');
-global.roleClaimer = require('role.claimer');
+const scriptSystem = require("./script.system");
 
-var laps = 26388483;
-var pix = '';
-var roles = ['harvester', 'upgrader', 'builder', 'hunter', 'primihunter', 'upgrader2', 'miner', 'claimer'];
+global.roleHarvester = require("role.harvester");
+global.roleUpgrader = require("role.upgrader");
+global.roleUpgrader2 = require("role.upgrader2");
+global.roleBuilder = require("role.builder");
+global.roleHunter = require("role.hunter");
+global.rolePrimihunter = require("role.primihunter");
+global.roleMiner = require("role.miner");
+global.roleClaimer = require("role.claimer");
+global.roleGraber = require("role.graber");
+global.scriptSystem = require("script.system");
 
 /**
- * @param {String} a a string not null
- * @returns a with a Majuscule on the first character
+ * @param {*} role le role a rechercher parmis les creeps
+ * @returns La liste de tout les creeps de l'utilisateur avec le role "role"
  */
-function strUcFirst(a){return (a+'').charAt(0).toUpperCase()+a.substr(1);}
-
-function GetCreepsByRole(role){
-  var CreepList = [];
-    for (var creepname in Game.creeps){
-      if (Game.creeps[creepname].memory.role == role){
-      CreepList.push(Game.creeps[creepname]);
-    }
-  }
-  return CreepList
-}
-
-module.exports.loop = function () {
-
-//VAR NAMENUMBER = RAND(0-100)
-    if (Game.time - laps > 10){
-        laps = Game.time;
-    }
-    var namenumber = (Game.time - laps);
-    
-//PIXELS
-    if (pix != 'Pix Loading : ' + Math.trunc((Game.cpu.bucket/100)) + '%'){
-        pix = 'Pix Loading : ' + Math.trunc((Game.cpu.bucket/100)) + '%';
-        console.log(pix);
-    }
-    if(Game.cpu.bucket == 10000) {
-        Game.cpu.generatePixel();
-    }
-    
-//MEMOIRE
-    for(var name in Memory.creeps) {
-        if(!Game.creeps[name]) {
-            delete Memory.creeps[name];
-            console.log('Clearing non-existing creep memory:', name);
+function GetCreepsByRole(role) {
+    var CreepList = [];
+    for (var creepname in Game.creeps) {
+        if (Game.creeps[creepname].memory.role == role) {
+            st.push(Game.creeps[creepname]);
         }
     }
-
-//UPDATE TOWERS
-    for (room in Game.rooms){
-        var towers = Game.rooms[room].find(FIND_STRUCTURES,{
-                filter: function(object){
-                    return (object.structureType === STRUCTURE_TOWER);
-                }});
+    return CreepList;
+}
+/**
+ * Fonction qui appelle la fonction run associee à chaque Creeps
+ */
+function updateAllCreeps() {
+    for (var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        var role = creep.memory.role;
+        if (roles.includes(role)) {
+            global["role" + scriptSystem.strucFirst(creep.memory.role)]["run"](creep);
+        }
+    }
+}
+/**
+ * Supprime les creeps de la "Memory" qui ne correspondent pas à des creeps de la "Game"
+ * ATTENTION affiche les creeps supprimés dans la console
+ */
+function cleanMemory() {
+    for (var name in Memory.creeps) {
+        if (!Game.creeps[name]) {
+            delete Memory.creeps[name];
+            console.log("Clearing non-existing creep memory:", name);
+        }
+    }
+}
+/**
+ * Trouve les Towers de la game, si cible attak et si structure endomagés, répare
+ */
+function updateTower() {
+    for (room in Game.rooms) {
+        var towers = Game.rooms[room].find(FIND_STRUCTURES, {
+            filter: function (object) {
+                return object.structureType === STRUCTURE_TOWER;
+            },
+        });
         //EACH TOWER
-        for (tower in towers){
+        for (tower in towers) {
             var tower = towers[tower];
+            //ATTACK
+            var closestHostile = tower.pos.findClosestByRange(
+                FIND_HOSTILE_CREEPS,
+                {
+                    filter: (creep) => {
+                        return !creep.name.toLowerCase().includes("scala");
+                    },
+                }
+            );
+            if (closestHostile) {
+                tower.attack(closestHostile);
+            }
             //SOIN
-            var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: (structure) => (structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL)
-            });
-            if(closestDamagedStructure) {
+            var closestDamagedStructure = tower.pos.findClosestByRange(
+                FIND_STRUCTURES,
+                {
+                    filter: (structure) =>
+                        structure.hits < structure.hitsMax &&
+                        structure.structureType != STRUCTURE_WALL &&
+                        structure.hits < 30000,
+                }
+            );
+            if (closestDamagedStructure) {
                 tower.repair(closestDamagedStructure);
-            }else{
+            } /*else{
+            //REPAIR WALL
                 var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: (structure) => (structure.structureType == STRUCTURE_WALL && structure.hits < 1000)
                 });
                 if (closestDamagedStructure && tower.store.getUsedCapacity(RESOURCE_ENERGY) > tower.store.getCapacity(RESOURCE_ENERGY)/3*2){
                     tower.repair(closestDamagedStructure);
                 }
-            }
-            //ATTACK
-            var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
-                filter: (creep) => {
-                    return (!creep.name.toLowerCase().includes("scala"));
-                }
-            });
-            if(closestHostile ) {
-                tower.attack(closestHostile);
-            }
+            }*/
         }
     }
-    
-//UPDATE CREEPS
-    for(var name in Game.creeps) {
-        var creep = Game.creeps[name];
-        var role = creep.memory.role;
-        if(roles.indexOf(role) >= 0) {
-            global['role' + strUcFirst(creep.memory.role) ]['run'](creep);
+}
+
+var pix = "";
+var base = "ESCALATOR";
+//var roles = ['harvester', 'upgrader', 'builder', 'hunter', 'primihunter', 'upgrader2', 'miner', 'claimer'];
+var roles = ["graber", "upgrader", "builder"];
+
+module.exports.loop = function () {
+    //PIXELS effet de bord
+    scriptSystem.generatePixel();
+    //UPDATE CREEPS
+    updateAllCreeps();
+    //MEMOIRE effet de bord
+    cleanMemory();
+    //UPDATE TOWERS
+    //DEPENSE POTENTIELLEMENT DE L'ENERGIE
+    updateTower();
+    //CREATION CREEPS
+    //DEPENSE POTENTIELLEMENT DE L'ENERGIE
+    buildCreeps();
+};
+/**
+ * Construit les creeps necessaire selon le niveau d'energie du spawn
+ */ 
+function buildCreeps() {    
+    //VAR NAMENUMBER = RAND(0-100)
+    var namenumber = scriptSystem.randPerso();
+    var spawn = Game.spawns['Home'];
+    var mapRole = roles.map(x => scriptSystem.nbCreepRole(x));
+    var aconstruire = spawn.room.find(FIND_CONSTRUCTION_SITES);
+    if (spawn.room.energyAvailable >= spawn.room.energyCapacityAvailable){
+        if (mapRole[0] < 4){ //TODO
+            console.log(spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}}));
+        }else if (mapRole[1] < 2){
+            console.log(spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "🛠" + namenumber, {memory: {working: false, emptying:false, role: roles[1]}}));
+        }else if (aconstruire && mapRole[2] < 2){
+            spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "🔨" + namenumber, {memory: {working: false, emptying:false, role: roles[2]}});
         }
-    }
-    
-//CREATION CREEPS
-    for (name in Game.spawns){
-        spawn = Game.spawns[name];
+    console.log(mapRole);
+}
+}
+/*   for (spawnName in Game.spawns){
+        spawn = Game.spawns[spawnName];
     //COMPTE NB OF CREEPS
         var lesCreepsDeLaRoom = spawn.room.find(FIND_MY_CREEPS);
-        // HELP     var roles = ['harvester', 'upgrader', 'builder', 'hunter', 'primihunter', 'upgrader2', 'miner'];
         var nbHarvester = lesCreepsDeLaRoom.filter(creep => creep.memory.role == roles[0]).length;
         var nbUpgrader = lesCreepsDeLaRoom.filter(creep => creep.memory.role == roles[1]).length;
         var nbBuilder = lesCreepsDeLaRoom.filter(creep => creep.memory.role == roles[2]).length;
@@ -131,7 +170,6 @@ module.exports.loop = function () {
     //BUILD IF NOT ENOUGH
     
         var sources = spawn.room.find(FIND_SOURCES);
-        var base = 'ESCALATOR'
         // HELP     var roles = ['harvester', 'upgrader', 'builder', 'hunter', 'primihunter', 'upgrader2', 'miner'];
         if (spawn.room.energyAvailable >= spawn.room.energyCapacityAvailable){
             if (nbMiner < sources.length){
@@ -144,20 +182,10 @@ module.exports.loop = function () {
                 spawn.spawnCreep([CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], base + "🥡" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}});
             }else if (nbBuilder <2 && aconstruire.length > 0){
                 spawn.spawnCreep([WORK, WORK, WORK,  WORK,  CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], base + "🔨" + namenumber, {memory: {working: false, emptying:false, role: roles[2]}});
-            }else if (nbUpgrader < 4){
+            }else if (nbUpgrader < 1){
                 spawn.spawnCreep([WORK, WORK, WORK,  WORK,  WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], base + "🛠" + namenumber, {memory: {working: false, emptying:false, role: roles[1]}});
-            }else if (nbClaimer <1){
+            }else if (nbClaimer <0){
                 spawn.spawnCreep([CLAIM, CLAIM, MOVE, MOVE], base + "🦺" + namenumber, {memory: {working: false, emptying:false, role: roles[7]}});
             }
         }
-    }
-}
-
-
-
-
-
-
-
-
-
+    }*/

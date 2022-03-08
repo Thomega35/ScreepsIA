@@ -30,8 +30,8 @@ var roleUpgrader = {
             }else{*/
             var depots = creep.room.find(FIND_STRUCTURES,{
                 filter: (structure) => {
-                    return (structure.structureType == STRUCTURE_STORAGE &&
-                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 80000);
+                    return (structure.structureType == STRUCTURE_SPAWN);/*STRUCTURE_STORAGE &&
+                        structure.store.getUsedCapacity(RESOURCE_ENERGY) > 80000)*/
                 }
             });
             var source = creep.pos.findClosestByRange(depots);
