@@ -2,22 +2,20 @@ module.exports = {
 
     /** @param {Creep} creep **/
     run: function(creep) {
-        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
-            this.emptying = false;
+        if (creep.memory.emptying && creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
+            creep.memory.emptying = false;
+            creep.memory.sources = creep.room.find(FIND_SOURCES);
         }
         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0){
-            this.emptying = true;
+            creep.memory.emptying = true;
         }
 
-        if (!this.sources){
-            this.sources = creep.room.find(FIND_SOURCES);
-        }
-	    if(!this.emptying) {
-            if(creep.harvest(this.sources[0]) == ERR_NOT_IN_RANGE && creep.harvest(this.sources[1]) == ERR_NOT_IN_RANGE) {
-                if (creep.moveTo(this.sources[0], {visualizePathStyle: {stroke: '#ffaa00'}}) == ERR_NO_PATH){
-                    var temp = this.sources[0];
-                    this.sources[0] = this.sources[1];
-                    this.sources[1] = temp;
+	    if(!creep.memory.emptying) {
+            if(creep.harvest(Game.getObjectById(Game.getObjectById(creep.memory.sources[0].id).id)) == ERR_NOT_IN_RANGE && creep.harvest(Game.getObjectById(creep.memory.sources[1].id)) == ERR_NOT_IN_RANGE) {
+                if (creep.moveTo(Game.getObjectById(creep.memory.sources[0].id), {visualizePathStyle: {stroke: '#ffaa00'}}) == ERR_NO_PATH){
+                    var temp = Game.getObjectById(creep.memory.sources[0].id);
+                    Game.getObjectById(creep.memory.sources[0].id) = Game.getObjectById(creep.memory.sources[1].id);
+                    Game.getObjectById(creep.memory.sources[1].id) = temp;
                 }
             }
         }
@@ -37,6 +35,4 @@ module.exports = {
             }
         }
 	},
-    sources : 0,
-    emptying : false
 };

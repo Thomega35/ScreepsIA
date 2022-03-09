@@ -4,12 +4,10 @@ var roleHarvester = {
     run: function(creep) {
         
         //emptying true = Depense ses ressources
-        
-        console.log(creep.room)
-        console.log(creep.memory.workroom)
-        console.log(creep.room == creep.memory.workroom)
-        
         var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
+        var thingToWithdraw = creep.room.find(FIND_TOMBSTONES || FIND_RUINS).filter(x => x.store>0);
+        console.log(thingToWithdraw);
+        
         var source = creep.pos.findClosestByRange(dropEnergies); 
         if (dropEnergies.length >= 0 || creep.memory.emptying){
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
@@ -71,3 +69,8 @@ var roleHarvester = {
     }
 };
 module.exports = roleHarvester;
+
+   /* //TEST
+    console.log(creep.room.name)
+    console.log(creep.memory.workroom.name)
+    console.log(creep.room.name == creep.memory.workroom.name)*/
