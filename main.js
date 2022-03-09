@@ -1,5 +1,4 @@
-const scriptSystem = require("./script.system");
-
+global.scriptSystem = require("./script.system");
 global.roleHarvester = require("role.harvester");
 global.roleUpgrader = require("role.upgrader");
 global.roleUpgrader2 = require("role.upgrader2");
@@ -19,7 +18,7 @@ function GetCreepsByRole(role) {
     var CreepList = [];
     for (var creepname in Game.creeps) {
         if (Game.creeps[creepname].memory.role == role) {
-            st.push(Game.creeps[creepname]);
+            CreepList.push(Game.creeps[creepname]);
         }
     }
     return CreepList;
@@ -52,15 +51,15 @@ function cleanMemory() {
  * Trouve les Towers de la game, si cible attak et si structure endomagés, répare
  */
 function updateTower() {
-    for (room in Game.rooms) {
+    for (let room in Game.rooms) {
         var towers = Game.rooms[room].find(FIND_STRUCTURES, {
             filter: function (object) {
                 return object.structureType === STRUCTURE_TOWER;
             },
         });
         //EACH TOWER
-        for (tower in towers) {
-            var tower = towers[tower];
+        for (let towerIndex in towers) {
+            var tower = towers[towerIndex];
             //ATTACK
             var closestHostile = tower.pos.findClosestByRange(
                 FIND_HOSTILE_CREEPS,
@@ -98,7 +97,29 @@ function updateTower() {
     }
 }
 
-var pix = "";
+/**
+ * Construit les creeps necessaire selon le niveau d'energie du spawn
+ */ 
+ function buildCreeps() {
+    //VAR NAMENUMBER = RAND(0-100)
+    var namenumber = scriptSystem.randPerso();
+    var spawn = Game.spawns['Home'];
+    var mapRole = roles.map(x => scriptSystem.nbCreepRole(x));
+    var aconstruire = spawn.room.find(FIND_CONSTRUCTION_SITES);
+    if (spawn.room.energyAvailable >= spawn.room.energyCapacityAvailable){
+        if (mapRole[0] < 4){ //TODO
+            console.log(spawn.spawnCreep([WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}}));
+        }else if (mapRole[1] < 3){
+            console.log(spawn.spawnCreep([WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], base + "🛠" + namenumber, {memory: {working: false, emptying:false, role: roles[1]}}));
+        }else if (aconstruire.length > 0 && mapRole[2] < 2 && false){//TODO
+            spawn.spawnCreep([WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE], base + "🔨" + namenumber, {memory: {working: false, emptying:false, role: roles[2]}});
+        }
+        console.log("[" + roles + "] [" + mapRole + "]");
+    }else if(mapRole[0] <= 0 && spawn.room.energyAvailable >= 300){
+        spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}});
+    }
+}
+
 var base = "ESCALATOR";
 //var roles = ['harvester', 'upgrader', 'builder', 'hunter', 'primihunter', 'upgrader2', 'miner', 'claimer'];
 var roles = ["graber", "upgrader", "builder"];
@@ -117,26 +138,6 @@ module.exports.loop = function () {
     //DEPENSE POTENTIELLEMENT DE L'ENERGIE
     buildCreeps();
 };
-/**
- * Construit les creeps necessaire selon le niveau d'energie du spawn
- */ 
-function buildCreeps() {    
-    //VAR NAMENUMBER = RAND(0-100)
-    var namenumber = scriptSystem.randPerso();
-    var spawn = Game.spawns['Home'];
-    var mapRole = roles.map(x => scriptSystem.nbCreepRole(x));
-    var aconstruire = spawn.room.find(FIND_CONSTRUCTION_SITES);
-    if (spawn.room.energyAvailable >= spawn.room.energyCapacityAvailable){
-        if (mapRole[0] < 4){ //TODO
-            console.log(spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}}));
-        }else if (mapRole[1] < 2){
-            console.log(spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "🛠" + namenumber, {memory: {working: false, emptying:false, role: roles[1]}}));
-        }else if (aconstruire && mapRole[2] < 2){
-            spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "🔨" + namenumber, {memory: {working: false, emptying:false, role: roles[2]}});
-        }
-    console.log(mapRole);
-}
-}
 /*   for (spawnName in Game.spawns){
         spawn = Game.spawns[spawnName];
     //COMPTE NB OF CREEPS
