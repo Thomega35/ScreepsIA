@@ -111,11 +111,11 @@ function updateTower() {
             console.log(spawn.spawnCreep([WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}}));
         }else if (mapRole[1] < 3){
             console.log(spawn.spawnCreep([WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], base + "🛠" + namenumber, {memory: {working: false, emptying:false, role: roles[1]}}));
-        }else if (aconstruire.length > 0 && mapRole[2] < 2 && false){//TODO
+        }else if (aconstruire.length > 0 && mapRole[2] < 1){//TODO
             spawn.spawnCreep([WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE], base + "🔨" + namenumber, {memory: {working: false, emptying:false, role: roles[2]}});
         }
         console.log("[" + roles + "] [" + mapRole + "]");
-    }else if(mapRole[0] <= 0 && spawn.room.energyAvailable >= 300){
+    }else if(mapRole[0] < 3 && spawn.room.energyAvailable >= 300){
         spawn.spawnCreep([WORK, CARRY, CARRY, MOVE, MOVE], base + "☄" + namenumber, {memory: {workroom : spawn.room, emptying:false, role: roles[0]}});
     }
 }
