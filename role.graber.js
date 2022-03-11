@@ -8,7 +8,6 @@ module.exports = {
         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0){
             creep.memory.emptying = true;
         }
-
         if (!this.sources){
             this.sources = creep.room.find(FIND_SOURCES);
         }
