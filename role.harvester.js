@@ -2,20 +2,29 @@ var roleHarvester = {
 
     /** @param {Creep} creep **/
     run: function(creep) {
-        
         //emptying true = Depense ses ressources
-        var dropEnergies = creep.room.find(FIND_DROPPED_RESOURCES);
-        var thingToWithdraw = creep.room.find(FIND_TOMBSTONES || FIND_RUINS).filter(x => x.store>0);
-        console.log(thingToWithdraw);
+        //RECHERCHE LES ENDROITS OU PRENDRE DE L'ENERGIE
+        var towithtomb = creep.room.find(FIND_TOMBSTONES).filter(x => x.store[RESOURCE_ENERGY]>0);
+        var towithenergy = creep.room.find(FIND_DROPPED_RESOURCES);
+        var towithruin = creep.room.find(FIND_RUINS).filter(x => x.store[RESOURCE_ENERGY]>0);
+        //var tombstoneToWithdraw2 = creep.room.find(FIND_RUINS).filter(x => x.store[RESOURCE_ENERGY]>0);
+        var toTakeFrom = (towithtomb.concat(towithenergy)).concat(towithruin);
+        console.log(toTakeFrom);
         
-        var source = creep.pos.findClosestByRange(dropEnergies); 
-        if (dropEnergies.length >= 0 || creep.memory.emptying){
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
-                creep.memory.emptying = false;
-            }
-            if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0){
-                creep.memory.emptying = true;
-            }
+        //ACTUALISATION EMPTYING
+        if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0){
+            creep.memory.emptying = true;
+        }
+        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25){
+            creep.memory.emptying = false;
+        }
+
+        
+
+
+        if (toTakeFrom.length > 0 || creep.memory.emptying){
+            var source = creep.pos.findClosestByRange(toTakeFrom); 
+            
             
             if(!creep.memory.emptying) {
                 //recolte de la ressource
@@ -64,7 +73,7 @@ var roleHarvester = {
             }
             //en pause
         }else{
-            creep.moveTo(new RoomPosition(15, 15, 'E1N33'), {visualizePathStyle: {stroke: '#ffffff'}});
+            creep.moveTo(new RoomPosition(25, 25, 'E9S54'), {visualizePathStyle: {stroke: '#ffffff'}});
         }
     }
 };
