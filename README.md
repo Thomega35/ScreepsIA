@@ -1,4 +1,5 @@
 [![npm version](https://badge.fury.io/js/npm.svg)](https://badge.fury.io/js/npm)
+
 # What is Screeps?
 
 [](https://raw.githubusercontent.com/screeps/screeps/HEAD/logo.png)
@@ -9,5 +10,4 @@ To Learn more, visit [the steam page](https://store.steampowered.com/app/464350/
 
 # Yet Another Screeps AI
 
-You will find here the script which control my units online and helped me learn JavaScript.
- 
+You will find here the script which control my units online and helped me learn Typescript.
