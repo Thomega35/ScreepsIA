@@ -11,3 +11,10 @@ To Learn more, visit [the steam page](https://store.steampowered.com/app/464350/
 # Yet Another Screeps AI
 
 You will find here the script which control my units online and helped me learn Typescript.
+
+
+# Screeps Typescript Starter (Template)
+
+Screeps Typescript Starter is a starting point for a Screeps AI written in Typescript. It provides everything you need to start writing your AI whilst leaving `main.ts` as empty as possible.
+
+You can access the original project [here](https://github.com/screepers/screeps-typescript-starter)
