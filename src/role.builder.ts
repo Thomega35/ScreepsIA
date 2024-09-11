@@ -18,6 +18,10 @@ export const roleBuilder = {
     // Building mode
     if (creep.memory.building) {
       const construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+      if (!construction_site) {
+        creep.say("😭 No work : going kamikaze mode 💥");
+        creep.suicide();
+      }
       if (construction_site && creep.build(construction_site) == ERR_NOT_IN_RANGE) {
         creep.moveTo(construction_site, { visualizePathStyle: { stroke: "#ffffff" } });
       }
@@ -30,12 +34,17 @@ export const roleBuilder = {
   findEnergy: function (creep: Creep) {
     const depots = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
       filter: structure => {
-        return (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_STORAGE) && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50;
+        return (
+          (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_STORAGE) &&
+          structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50
+        );
       }
     });
     if (!depots) {
       const spawn = Game.getObjectById(creep.memory.spawn?.id);
-      const WaitPosition = spawn? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName) : new RoomPosition(10, 10, creep.room.name);
+      const WaitPosition = spawn
+        ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
+        : new RoomPosition(10, 10, creep.room.name);
       creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
       creep.say("Au coin! 😭");
     }
