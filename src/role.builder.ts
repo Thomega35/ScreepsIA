@@ -53,4 +53,3 @@ export const roleBuilder = {
     }
   }
 };
-module.exports = roleBuilder;
