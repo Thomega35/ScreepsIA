@@ -1,10 +1,33 @@
-export const roleHarvester = {
+function pickup(creep: Creep) {
+  const target = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+    filter: resource => {
+      return resource.amount > 100;
+    }
+  });
+  console.log("target", target);
+  if (target) {
+    if (creep.pickup(target) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(target);
+    }
+  }
+}
+
+export const roleGrabber = {
   run: function (creep: Creep) {
-    if (creep.store.getFreeCapacity() > 0) {
-      const sources = creep.room.find(FIND_SOURCES);
-      if (creep.harvest(sources[0]) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(sources[0], { visualizePathStyle: { stroke: "#ffaa00" } });
-      }
+    if (creep.memory.role !== "grabber") {
+      return;
+    }
+    if (creep.memory.emptying === undefined || creep.memory.emptying === null) {
+      creep.memory.emptying = false;
+    }
+    if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25) {
+      creep.memory.emptying = false;
+    }
+    if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
+      creep.memory.emptying = true;
+    }
+    if (!creep.memory.emptying) {
+      pickup(creep);
     } else {
       // Extension otherwiese tower otherwise spawn
       // First, try to find the closest extension
@@ -36,7 +59,8 @@ export const roleHarvester = {
       if (!target) {
         return;
       }
-      if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+
+      if (creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
         creep.moveTo(target, { visualizePathStyle: { stroke: "#ffffff" } });
       }
     }

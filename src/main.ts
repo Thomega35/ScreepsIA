@@ -1,5 +1,11 @@
 import { ErrorMapper } from "utils/ErrorMapper";
 import { roleHarvester } from "role.harvester";
+import { roleUpgrader } from "role.upgrader";
+import { roleMiner } from "role.miner";
+import { roleGrabber } from "role.grabber";
+import { roleBuilder } from "role.builder";
+import { SystemScript } from "script.system";
+import { SpawnScript } from "script.spawn";
 
 declare global {
   /*
@@ -18,8 +24,17 @@ declare global {
 
   interface CreepMemory {
     role: string;
-    room: string;
+    room: Room;
     working: boolean;
+    spawn: StructureSpawn;
+    upgrading?: boolean;
+    source?: Source;
+    emptying?: boolean;
+    building?: boolean;
+  }
+
+  interface SpawnMemory {
+    next_miner_spawn_source: number;
   }
 
   // Syntax for adding proprties to `global` (ex "global.log")
@@ -31,79 +46,47 @@ declare global {
   }
 }
 
-function cleanMemory() {
-  // Automatically delete memory of missing creeps
-  for (const name in Memory.creeps) {
-    if (!(name in Game.creeps)) {
-      delete Memory.creeps[name];
-    }
-  }
-}
-
-function spawnCreeps(creepsByRole: { [role: string]: Creep[] }, satic_name: string) {
-  for (const spawnName in Game.spawns) {
-    const spawn = Game.spawns[spawnName];
-    if (spawn.spawning === null) {
-      const harvesters = creepsByRole["harvester"] || [];
-      if (harvesters.length < 2) {
-        spawn.spawnCreep([MOVE, WORK, WORK, CARRY], `${satic_name}☄${Game.time}`, {
-          memory: { room: spawn.room.toString(), role: "harvester", working: false }
-        });
-      } else {
-        const upgraders = creepsByRole["upgrader"] || [];
-        if (upgraders.length < 1) {
-          spawn.spawnCreep([WORK, CARRY, MOVE], `Upgrader${Game.time}`, {
-            memory: { room: spawn.room.toString(), role: "upgrader", working: false }
-          });
-        }
-      }
-    }
-  }
-}
-
-function updateCreeps(roles: string[] = ["harvester", "upgrader", "builder"]) {
+function updateCreeps() {
   for (const name in Game.creeps) {
     const creep = Game.creeps[name];
     const role = creep.memory.role;
-    // if (roles.includes(role)) {
-    //   global["role." + role]["run"](creep);
-    // }
     if (role === "harvester") {
       roleHarvester.run(creep);
+    } else if (role === "miner") {
+      roleMiner.run(creep);
+    } else if (role === "grabber") {
+      roleGrabber.run(creep);
+    } else if (role === "upgrader") {
+      roleUpgrader.run(creep);
+    } else if (role === "builder") {
+      roleBuilder.run(creep);
     }
-  }
-}
-
-function generatePixel() {
-  let pix = "";
-  if (pix != "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%") {
-    pix = "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%";
-    console.log(pix);
-  }
-  if (Game.cpu.bucket == 10000) {
-    Game.cpu.generatePixel();
   }
 }
 
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
-  global.harvester = require("role.harvester");
-  console.log(`Current game tick is ${Game.time}`);
+  console.log(`Current game tick is ${Game.time} ------------------------`);
   const satic_name = "ESCALATOR";
-  const roles = ["harvester", "upgrader", "builder"];
 
-  cleanMemory();
+  SystemScript.cleanMemory();
 
   // Group creeps by role
-  const creepsByRole = _.groupBy(Object.values(Game.creeps), creep => creep.memory.role);
-  for (const role in creepsByRole) {
-    console.log(`Role ${role}: ${creepsByRole[role].length} creeps`);
+  SystemScript.printInfo(_.groupBy(Object.values(Game.creeps), creep => creep.memory.role));
+
+  for (const spawnName in Game.spawns) {
+    const spawn = Game.spawns[spawnName];
+    SpawnScript.spawnCreeps(spawn, satic_name);
   }
 
-  spawnCreeps(creepsByRole, satic_name);
+  updateCreeps();
 
-  generatePixel();
+  SystemScript.generatePixel();
 
-  updateCreeps(roles);
+  SystemScript.buildExtensions();
+
+  SystemScript.buildTowers();
 });
+
+loop();
