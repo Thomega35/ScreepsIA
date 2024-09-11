@@ -3,9 +3,9 @@ import { SystemScript } from "script.system";
 export const SpawnScript = {
   spawnHarvester: function (spawn: StructureSpawn, satic_name: string) {
     const energy_available = spawn.room.energyAvailable;
-    const body_parts = (
+    const body_parts = SystemScript.flat(
       Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
-    ).flat() as BodyPartConstant[];
+    ) as BodyPartConstant[];
     spawn.spawnCreep(body_parts, `${satic_name}☄${Game.time}`, {
       memory: { room: spawn.room, role: "harvester", working: false, spawn: spawn }
     });
@@ -17,9 +17,9 @@ export const SpawnScript = {
       spawn.memory.next_miner_spawn_source !== undefined && spawn.memory.next_miner_spawn_source !== null
         ? (spawn.memory.next_miner_spawn_source + 1) % sources.length
         : 0;
-    const body_parts = (
+    const body_parts = SystemScript.flat(
       Array(Math.floor(energy_available / 150)).fill([WORK, MOVE]) as string[]
-    ).flat() as BodyPartConstant[];
+    ) as BodyPartConstant[];
     spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
       memory: {
         room: spawn.room,
