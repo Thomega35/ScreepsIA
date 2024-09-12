@@ -5,7 +5,7 @@ import { roleMiner } from "role.miner";
 import { roleGrabber } from "role.grabber";
 import { roleBuilder } from "role.builder";
 import { SystemScript } from "script.system";
-import { SpawnScript } from "script.spawn";
+import { CreepScript } from "script.creep";
 
 declare global {
   /*
@@ -77,7 +77,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   for (const spawnName in Game.spawns) {
     const spawn = Game.spawns[spawnName];
-    SpawnScript.spawnCreeps(spawn, satic_name);
+    CreepScript.spawnCreeps(spawn, satic_name);
   }
 
   updateCreeps();

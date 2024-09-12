@@ -1,4 +1,4 @@
-//TypeScript version of the role.harvester.js file
+import { CreepScript } from "script.creep";
 
 export const roleUpgrader = {
   run: function (creep: Creep) {
@@ -11,23 +11,16 @@ export const roleUpgrader = {
       creep.say("⚡ upgrade");
     }
 
+    // Upgrading mode
     if (creep.memory.upgrading) {
       const controller = creep.room.controller;
       if (creep.upgradeController(controller!) == ERR_NOT_IN_RANGE) {
         creep.moveTo(controller!, { visualizePathStyle: { stroke: "#ffffff" } });
       }
+
+      // Energy gathering mode
     } else {
-      const depots = creep.room.find(FIND_STRUCTURES, {
-        filter: structure => {
-          return structure.structureType == STRUCTURE_SPAWN; /*STRUCTURE_STORAGE &&
-                  structure.store.getUsedCapacity(RESOURCE_ENERGY) > 80000)*/
-        }
-      });
-      const source = creep.pos.findClosestByRange(depots);
-      if (creep.withdraw(source!, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(source!, { visualizePathStyle: { stroke: "#ffaa00" } });
-      }
-      //}
+      CreepScript.findEnergy(creep);
     }
   }
 };

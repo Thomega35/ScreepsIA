@@ -1,3 +1,5 @@
+import { CreepScript } from "script.creep";
+
 export const roleBuilder = {
   /** @param {Creep} creep **/
   run: function (creep: Creep) {
@@ -28,28 +30,7 @@ export const roleBuilder = {
     }
     // Energy gathering mode
     else {
-      roleBuilder.findEnergy(creep);
+      CreepScript.findEnergy(creep);
     }
   },
-  findEnergy: function (creep: Creep) {
-    const depots = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-      filter: structure => {
-        return (
-          (structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_STORAGE) &&
-          structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50
-        );
-      }
-    });
-    if (!depots) {
-      const spawn = Game.getObjectById(creep.memory.spawn?.id);
-      const WaitPosition = spawn
-        ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
-        : new RoomPosition(10, 10, creep.room.name);
-      creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
-      creep.say("Au coin! 😭");
-    }
-    if (depots && creep.withdraw(depots, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(depots, { visualizePathStyle: { stroke: "#ffaa00" } });
-    }
-  }
 };

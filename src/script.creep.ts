@@ -1,6 +1,6 @@
 import { SystemScript } from "script.system";
 
-export const SpawnScript = {
+export const CreepScript = {
   spawnHarvester: function (spawn: StructureSpawn, satic_name: string) {
     const energy_available = spawn.room.energyAvailable;
     const body_parts = SystemScript.flat(
@@ -18,7 +18,7 @@ export const SpawnScript = {
         ? (spawn.memory.next_miner_spawn_source + 1) % sources.length
         : 0;
     const body_parts = SystemScript.flat(
-      Array(Math.floor(energy_available / 150)).fill([WORK, MOVE]) as string[]
+      Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
     ) as BodyPartConstant[];
     spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
       memory: {
@@ -75,20 +75,49 @@ export const SpawnScript = {
 
     // Spawn Harvester
     if ((miners.length == 0 || grabbers.length == 0) && energy_available >= 300 && harvesters.length < 2) {
-      SpawnScript.spawnHarvester(spawn, satic_name);
+      CreepScript.spawnHarvester(spawn, satic_name);
     } else if (energy_available === energy_capacity) {
       // Spawn Miner
       if (miners.length <= grabbers.length && miners.length < 3) {
-        SpawnScript.spawnMiner(spawn, satic_name, sources);
+        CreepScript.spawnMiner(spawn, satic_name, sources);
         // Spawn Grabber
       } else if (grabbers.length < 3) {
-        SpawnScript.spawnGrabber(spawn, satic_name);
+        CreepScript.spawnGrabber(spawn, satic_name);
         // Spawn Upgrader
       } else if (upgraders.length < 3) {
-        SpawnScript.spawnUpgrader(spawn, satic_name);
+        CreepScript.spawnUpgrader(spawn, satic_name);
       } else if (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 && builders.length < 3) {
-        SpawnScript.spawnBuilder(spawn, satic_name);
+        CreepScript.spawnBuilder(spawn, satic_name);
       }
+    }
+  },
+  findEnergy: function (creep: Creep) {
+    // First, try to findthe closest storage
+    let depots = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+      filter: structure => {
+        return structure.structureType == STRUCTURE_STORAGE && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50;
+      }
+    });
+
+    // If no storage is found, try to find the closest spawn
+    if (!depots) {
+      depots = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+        filter: structure => {
+          return structure.structureType == STRUCTURE_SPAWN && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50;
+        }
+      });
+    }
+
+    if (!depots) {
+      const spawn = Game.getObjectById(creep.memory.spawn?.id);
+      const WaitPosition = spawn
+        ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
+        : new RoomPosition(10, 10, creep.room.name);
+      creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
+      creep.say("Au coin! 😭");
+    }
+    if (depots && creep.withdraw(depots, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(depots, { visualizePathStyle: { stroke: "#ffaa00" } });
     }
   }
 };
