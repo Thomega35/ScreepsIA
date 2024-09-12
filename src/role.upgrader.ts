@@ -14,9 +14,8 @@ export const roleUpgrader = {
     // Upgrading mode
     if (creep.memory.upgrading) {
       const controller = creep.room.controller;
-      if (creep.upgradeController(controller!) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(controller!, { visualizePathStyle: { stroke: "#ffffff" } });
-      }
+      creep.moveTo(controller!, { visualizePathStyle: { stroke: "#ffffff" } });
+      creep.upgradeController(controller!);
 
       // Energy gathering mode
     } else {

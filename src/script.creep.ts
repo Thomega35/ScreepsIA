@@ -84,7 +84,7 @@ export const CreepScript = {
       } else if (grabbers.length < 3) {
         CreepScript.spawnGrabber(spawn, satic_name);
         // Spawn Upgrader
-      } else if (upgraders.length < 3) {
+      } else if (upgraders.length < 6) {
         CreepScript.spawnUpgrader(spawn, satic_name);
       } else if (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 && builders.length < 3) {
         CreepScript.spawnBuilder(spawn, satic_name);
