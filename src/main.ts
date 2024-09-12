@@ -87,6 +87,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
   SystemScript.buildExtensions();
 
   SystemScript.buildTowers();
+
+  SystemScript.updateTower();
 });
 
 loop();
