@@ -1,13 +1,31 @@
 function pickup(creep: Creep) {
-  const target = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+  const ruin = creep.pos.findClosestByRange(FIND_RUINS, {
+    filter: ruin => {
+      return ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+    }
+  });
+  const tombstone = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+    filter: tombstone => {
+      return tombstone.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+    }
+  });
+  const dropped_ressource = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
     filter: resource => {
       return resource.amount > 100;
     }
   });
-  console.log("target", target);
-  if (target) {
-    if (creep.pickup(target) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(target);
+  console.log("dropped_ressource", dropped_ressource);
+  if (ruin) {
+    if (creep.withdraw(ruin, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(ruin);
+    }
+  } else if (tombstone) {
+    if (creep.withdraw(tombstone, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(tombstone);
+    }
+  } else if (dropped_ressource) {
+    if (creep.pickup(dropped_ressource) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(dropped_ressource);
     }
   }
 }
@@ -61,7 +79,9 @@ export const roleGrabber = {
       if (!target) {
         target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure => {
-            return structure.structureType === STRUCTURE_STORAGE && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            return (
+              structure.structureType === STRUCTURE_STORAGE && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            );
           }
         });
       }
