@@ -14,7 +14,6 @@ function pickup(creep: Creep) {
       return resource.amount > 100;
     }
   });
-  console.log("dropped_ressource", dropped_ressource);
   if (ruin) {
     if (creep.withdraw(ruin, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
       creep.moveTo(ruin);
