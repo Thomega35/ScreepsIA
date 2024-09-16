@@ -75,7 +75,6 @@ export const CreepScript = {
 
     const isConstructionSite = spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0;
 
-    console.log(harvesters.length)
     // Spawn Harvester
     if ((miners.length == 0 || grabbers.length == 0) && energy_available >= 300 && harvesters.length < 2) {
       CreepScript.spawnHarvester(spawn, satic_name);
@@ -96,11 +95,11 @@ export const CreepScript = {
   },
   doNotDisturb: function (creep: Creep) {
     const spawn = Game.getObjectById(creep.memory.spawn?.id);
-      const WaitPosition = spawn
-        ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
-        : new RoomPosition(10, 10, creep.room.name);
-      creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
-      creep.say("Au coin! 😭");
+    const WaitPosition = spawn
+      ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
+      : new RoomPosition(10, 10, creep.room.name);
+    creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
+    creep.say("Au coin! 😭");
   },
   findEnergy: function (creep: Creep) {
     // First, try to findthe closest storage
@@ -125,8 +124,12 @@ export const CreepScript = {
       }
     }
 
-    depots.filter(depot => depot.store.getUsedCapacity(RESOURCE_ENERGY) > 50);
-    const depot = creep.pos.findClosestByPath(depots);
+    const filterdepots = depots.filter(
+      depot => (depot as StructureStorage).store.getUsedCapacity(RESOURCE_ENERGY) > 50
+    );
+
+    const depot = creep.pos.findClosestByPath(filterdepots);
+
     if (!depot) {
       CreepScript.doNotDisturb(creep);
     }
