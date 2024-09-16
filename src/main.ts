@@ -73,7 +73,6 @@ export const loop = ErrorMapper.wrapLoop(() => {
   SystemScript.cleanMemory();
 
   // Group creeps by role
-  SystemScript.printInfo(_.groupBy(Object.values(Game.creeps), creep => creep.memory.role));
 
   for (const spawnName in Game.spawns) {
     const spawn = Game.spawns[spawnName];

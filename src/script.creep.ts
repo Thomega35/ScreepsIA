@@ -62,7 +62,12 @@ export const CreepScript = {
     const sources = spawn.room.find(FIND_SOURCES);
     const energy_available = spawn.room.energyAvailable;
     const energy_capacity = spawn.room.energyCapacityAvailable;
-    const creepsByRole = _.groupBy(Object.values(Game.creeps), creep => creep.memory.role);
+    const creepsByRole = _.groupBy(
+      Object.values(Game.creeps).filter(creep => creep.memory.spawn?.id === spawn.id),
+      creep => creep.memory.role
+    );
+    console.log("Spawn: " + spawn.name);
+    SystemScript.printInfo(creepsByRole);
 
     if (spawn.spawning !== null) {
       return;
