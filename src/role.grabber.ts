@@ -14,6 +14,7 @@ function pickup(creep: Creep) {
       return resource.amount > 100;
     }
   });
+
   if (ruin) {
     if (creep.withdraw(ruin, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
       creep.moveTo(ruin);
@@ -56,7 +57,7 @@ export const roleGrabber = {
         }
       });
 
-      // If no tower is found, try to find the closest spawn
+      // If no extension is found, try to find the closest spawn
       if (!target) {
         target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure => {
@@ -65,11 +66,11 @@ export const roleGrabber = {
         });
       }
 
-      // If no extension is found, try to find the closest tower
+      // If no spawn is found, try to find the closest tower
       if (!target) {
         target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure => {
-            return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+            return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
           }
         });
       }
