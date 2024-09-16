@@ -96,7 +96,7 @@ export const CreepScript = {
   doNotDisturb: function (creep: Creep) {
     const spawn = Game.getObjectById(creep.memory.spawn?.id);
     const WaitPosition = spawn
-      ? new RoomPosition(spawn.pos.x + 10, spawn.pos.y + 10, spawn.pos.roomName)
+      ? new RoomPosition(spawn.pos.x - 10, spawn.pos.y + 10, spawn.pos.roomName)
       : new RoomPosition(10, 10, creep.room.name);
     creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
     creep.say("Au coin! 😭");
