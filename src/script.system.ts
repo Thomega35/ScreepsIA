@@ -1,3 +1,81 @@
+const controllerLvlToRoads: { [key: number]: number } = {
+  1: 0,
+  2: 0,
+  3: 12,
+  4: 24,
+  5: 32,
+  6: 32,
+  7: 32,
+  8: 32
+};
+
+const controllerLvlToExtensions: { [key: number]: number } = {
+  1: 0,
+  2: 5,
+  3: 10,
+  4: 20,
+  5: 30,
+  6: 40,
+  7: 50,
+  8: 60
+};
+
+const roadLists: Map<number, [number, number][]> = new Map([
+  [
+    2,
+    [
+      [-1, 0],
+      [0, -1],
+      [0, 1],
+      [1, 0]
+    ]
+  ],
+  [
+    3,
+    [
+      [-2, -1],
+      [-2, 1],
+      [-1, -2],
+      [-1, 2],
+      [1, -2],
+      [1, 2],
+      [2, -1],
+      [2, 1]
+    ]
+  ],
+  [
+    4,
+    [
+      [-3, 0],
+      [3, 0],
+      [0, -3],
+      [0, 3],
+      [-3, -2],
+      [-3, 2],
+      [3, -2],
+      [3, 2],
+      [-2, -3],
+      [-2, 3],
+      [2, -3],
+      [2, 3]
+    ]
+  ],
+  [
+    5,
+    [
+      [-4, -1],
+      [-4, 1],
+      [4, -1],
+      [4, 1],
+      [-1, -4],
+      [-1, 4],
+      [1, -4],
+      [1, 4],
+      [-3, 4]
+    ]
+  ]
+]);
+
 export const SystemScript = {
   generatePixel: function () {
     let pix = "";
@@ -30,27 +108,15 @@ export const SystemScript = {
     }
   },
   buildExtensions: function () {
-    const controllerLvlToExtensions: { [key: number]: number } = {
-      1: 0,
-      2: 5,
-      3: 10,
-      4: 20,
-      5: 30,
-      6: 40,
-      7: 50,
-      8: 60
-    };
     for (const spawnName in Game.spawns) {
       const spawn = Game.spawns[spawnName];
-      const room = spawn.room;
-      const controllerLevel = room.controller!.level;
-      const requiredExtensions = controllerLvlToExtensions[controllerLevel];
+      const requiredExtensions = controllerLvlToExtensions[spawn.room.controller?.level ?? 0];
 
       let nbExtensions =
-        room.find(FIND_MY_STRUCTURES, {
+        spawn.room.find(FIND_MY_STRUCTURES, {
           filter: { structureType: STRUCTURE_EXTENSION }
         }).length +
-        room.find(FIND_MY_CONSTRUCTION_SITES, {
+        spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
           filter: { structureType: STRUCTURE_EXTENSION }
         }).length;
 
@@ -59,12 +125,10 @@ export const SystemScript = {
       let dx = 0;
       let dy = -1;
 
-      console.log("nbExtensions: " + nbExtensions);
-
       while (nbExtensions < requiredExtensions) {
         // Place an extension construction site on even x+y coordinates
         if ((x + y) % 2 === 0) {
-          const result = room.createConstructionSite(spawn.pos.x + x, spawn.pos.y + y, STRUCTURE_EXTENSION);
+          const result = spawn.room.createConstructionSite(spawn.pos.x + x, spawn.pos.y + y, STRUCTURE_EXTENSION);
           if (result === OK) {
             nbExtensions++;
           }
@@ -82,16 +146,6 @@ export const SystemScript = {
     }
   },
   buildRoads: function () {
-    const controllerLvlToRoads: { [key: number]: number } = {
-      1: 0,
-      2: 0,
-      3: 12,
-      4: 24,
-      5: 32,
-      6: 32,
-      7: 32,
-      8: 32
-    };
     for (const spawnName in Game.spawns) {
       const spawn = Game.spawns[spawnName];
       const nbRoads =
@@ -113,52 +167,21 @@ export const SystemScript = {
         (nbRoads < controllerLvlToRoads[spawn.room.controller.level] ||
           (nbStorage === 0 && spawn.room.controller.level >= 4))
       ) {
+        //Roads (not before tower to repair)
         if (spawn.room.controller.level >= 3) {
-          //Roads (not before tower to repair)
-          //Lvl 2
-          spawn.room.createConstructionSite(spawn.pos.x - 1, spawn.pos.y, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x, spawn.pos.y - 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x, spawn.pos.y + 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 1, spawn.pos.y, STRUCTURE_ROAD);
-          //Lvl 3
-          spawn.room.createConstructionSite(spawn.pos.x - 2, spawn.pos.y - 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 2, spawn.pos.y + 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 1, spawn.pos.y - 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 1, spawn.pos.y + 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 1, spawn.pos.y - 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 1, spawn.pos.y + 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 2, spawn.pos.y - 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 2, spawn.pos.y + 1, STRUCTURE_ROAD);
-        }
-        if (spawn.room.controller.level >= 4) {
-          //Storage
-          spawn.room.createConstructionSite(spawn.pos.x - 4, spawn.pos.y + 5, STRUCTURE_STORAGE);
-          //Roads
-          //Lvl 4
-          spawn.room.createConstructionSite(spawn.pos.x - 3, spawn.pos.y, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 3, spawn.pos.y, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x, spawn.pos.y - 3, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x, spawn.pos.y + 3, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 3, spawn.pos.y - 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 3, spawn.pos.y + 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 3, spawn.pos.y - 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 3, spawn.pos.y + 2, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 2, spawn.pos.y - 3, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 2, spawn.pos.y + 3, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 2, spawn.pos.y - 3, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 2, spawn.pos.y + 3, STRUCTURE_ROAD);
-        }
-        if (spawn.room.controller.level >= 5) {
-          //Roads
-          //Lvl 5
-          spawn.room.createConstructionSite(spawn.pos.x - 4, spawn.pos.y - 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 4, spawn.pos.y + 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 1, spawn.pos.y - 4, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 1, spawn.pos.y - 4, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 1, spawn.pos.y + 4, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x - 1, spawn.pos.y + 4, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 4, spawn.pos.y - 1, STRUCTURE_ROAD);
-          spawn.room.createConstructionSite(spawn.pos.x + 4, spawn.pos.y + 1, STRUCTURE_ROAD);
+          for (let ctrlLvlIterator = 2; ctrlLvlIterator <= spawn.room.controller.level; ctrlLvlIterator++) {
+            const roadListLvl = roadLists.get(ctrlLvlIterator);
+            if (roadListLvl) {
+              for (const [dx, dy] of roadListLvl) {
+                if (spawn.room.lookAt(spawn.pos.x + dx, spawn.pos.y + dy)[0].terrain !== "wall")
+                  spawn.room.createConstructionSite(spawn.pos.x + dx, spawn.pos.y + dy, STRUCTURE_ROAD);
+              }
+            }
+          }
+          if (spawn.room.controller.level >= 4) {
+            //Storage
+            spawn.room.createConstructionSite(spawn.pos.x - 4, spawn.pos.y + 5, STRUCTURE_STORAGE);
+          }
         }
       }
     }
@@ -214,15 +237,7 @@ export const SystemScript = {
         });
         if (closestDamagedStructure) {
           tower.repair(closestDamagedStructure);
-        } /*else{
-            //REPAIR WALL
-                let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-                    filter: (structure) => (structure.structureType == STRUCTURE_WALL && structure.hits < 1000)
-                });
-                if (closestDamagedStructure && tower.store.getUsedCapacity(RESOURCE_ENERGY) > tower.store.getCapacity(RESOURCE_ENERGY)/3*2){
-                    tower.repair(closestDamagedStructure);
-                }
-            }*/
+        }
       }
     }
   }
