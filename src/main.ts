@@ -76,20 +76,27 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   for (const spawnName in Game.spawns) {
     const spawn = Game.spawns[spawnName];
+
     CreepScript.spawnCreeps(spawn, satic_name);
+
+    if (Game.time % 100 === 0) {
+      SystemScript.buildBaseRoads(spawn);
+
+      SystemScript.buildExtensions(spawn);
+
+      SystemScript.buildTowers(spawn);
+
+      SystemScript.buildUpgradeRoads(spawn);
+
+      SystemScript.buildMinerRoads(spawn);
+    }
   }
 
   updateCreeps();
 
-  SystemScript.generatePixel();
-
-  SystemScript.buildExtensions();
-
-  SystemScript.buildRoads();
-
-  SystemScript.buildTowers();
-
   SystemScript.updateTower();
+
+  SystemScript.generatePixel();
 });
 
 loop();
