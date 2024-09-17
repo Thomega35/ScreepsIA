@@ -79,6 +79,7 @@ export const CreepScript = {
     const builders = creepsByRole["builder"] || [];
 
     const isConstructionSite = spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0;
+    const contrlLvl = spawn.room.controller?.level ?? 0;
 
     // Spawn Harvester
     if ((miners.length == 0 || grabbers.length == 0) && energy_available >= 300 && harvesters.length < 2) {
@@ -91,7 +92,11 @@ export const CreepScript = {
       } else if (grabbers.length < 3) {
         CreepScript.spawnGrabber(spawn, satic_name);
         // Spawn Upgrader
-      } else if ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3) {
+      } else if (
+        (contrlLvl <= 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
+        (contrlLvl === 4 && upgraders.length < 2) ||
+        (contrlLvl >= 5 && upgraders.length < 1)
+      ) {
         CreepScript.spawnUpgrader(spawn, satic_name);
       } else if (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 && builders.length < 3) {
         CreepScript.spawnBuilder(spawn, satic_name);
