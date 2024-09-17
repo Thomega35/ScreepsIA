@@ -85,6 +85,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   SystemScript.buildExtensions();
 
+  SystemScript.buildRoads();
+
   SystemScript.buildTowers();
 
   SystemScript.updateTower();
