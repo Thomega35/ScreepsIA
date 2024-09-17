@@ -171,32 +171,28 @@ export const SystemScript = {
     spawn.room.createConstructionSite(spawn.pos.x - 4, spawn.pos.y + 5, STRUCTURE_STORAGE);
   },
   buildUpgradeRoads: function (spawn: StructureSpawn) {
-    if (spawn.room.controller) {
-      const controller = spawn.room.controller;
-      if (controller.level < 4) {
-        return;
-      }
-      const path = spawn.pos.findPathTo(controller.pos, { ignoreCreeps: true });
-      for (const point of path) {
-        if (
-          spawn.room.lookAt(point.x, point.y)[0].terrain !== "wall" &&
-          //More than 3 tiles from spawn
-          (point.x < spawn.pos.x - 3 ||
-            point.x > spawn.pos.x + 3 ||
-            point.y < spawn.pos.y - 3 ||
-            point.y > spawn.pos.y + 3) &&
-          (point.x !== controller.pos.x || point.y !== controller.pos.y)
-        ) {
-          spawn.room.createConstructionSite(point.x, point.y, STRUCTURE_ROAD);
-        }
+    if (!spawn.room.controller || spawn.room.controller.level < 4) {
+      return;
+    }
+    const controller = spawn.room.controller;
+    const path = spawn.pos.findPathTo(controller.pos, { ignoreCreeps: true });
+    for (const point of path) {
+      if (
+        spawn.room.lookAt(point.x, point.y)[0].terrain !== "wall" &&
+        //More than 3 tiles from spawn
+        (point.x < spawn.pos.x - 3 ||
+          point.x > spawn.pos.x + 3 ||
+          point.y < spawn.pos.y - 3 ||
+          point.y > spawn.pos.y + 3) &&
+        (point.x !== controller.pos.x || point.y !== controller.pos.y)
+      ) {
+        spawn.room.createConstructionSite(point.x, point.y, STRUCTURE_ROAD);
       }
     }
   },
   buildMinerRoads: function (spawn: StructureSpawn) {
-    if (spawn.room.controller) {
-      if (spawn.room.controller.level < 4) {
-        return;
-      }
+    if (!spawn.room.controller || spawn.room.controller.level < 4) {
+      return;
     }
     const sources = spawn.room.find(FIND_SOURCES);
     for (const source of sources) {
@@ -210,6 +206,30 @@ export const SystemScript = {
             point.y < spawn.pos.y - 3 ||
             point.y > spawn.pos.y + 3) &&
           (point.x !== source.pos.x || point.y !== source.pos.y)
+        ) {
+          spawn.room.createConstructionSite(point.x, point.y, STRUCTURE_ROAD);
+        }
+      }
+    }
+  },
+  buildTowerRoads: function (spawn: StructureSpawn) {
+    if (spawn.room.controller && spawn.room.controller.level < 4) {
+      return;
+    }
+    const towers = spawn.room.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_TOWER }
+    });
+    for (const tower of towers) {
+      const path = spawn.pos.findPathTo(tower.pos, { ignoreCreeps: true });
+      for (const point of path) {
+        if (
+          spawn.room.lookAt(point.x, point.y)[0].terrain !== "wall" &&
+          //More than 3 tiles from spawn
+          (point.x < spawn.pos.x - 3 ||
+            point.x > spawn.pos.x + 3 ||
+            point.y < spawn.pos.y - 3 ||
+            point.y > spawn.pos.y + 3) &&
+          (point.x !== tower.pos.x || point.y !== tower.pos.y)
         ) {
           spawn.room.createConstructionSite(point.x, point.y, STRUCTURE_ROAD);
         }
