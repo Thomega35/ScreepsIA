@@ -6,7 +6,7 @@ function pickup(creep: Creep) {
   });
   const tombstone = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
     filter: tombstone => {
-      return tombstone.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
+      return tombstone.store.getUsedCapacity(undefined) > 0;
     }
   });
   const dropped_ressource = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
@@ -20,7 +20,8 @@ function pickup(creep: Creep) {
       creep.moveTo(ruin);
     }
   } else if (tombstone) {
-    if (creep.withdraw(tombstone, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+    let stored_resources = _.filter(Object.keys(tombstone.store), resource => tombstone.store[resource as ResourceConstant] > 0)
+    if (creep.withdraw(tombstone, stored_resources[0] as ResourceConstant) == ERR_NOT_IN_RANGE) {
       creep.moveTo(tombstone);
     }
   } else if (dropped_ressource) {
