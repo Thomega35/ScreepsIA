@@ -20,7 +20,10 @@ function pickup(creep: Creep) {
       creep.moveTo(ruin);
     }
   } else if (tombstone) {
-    let stored_resources = _.filter(Object.keys(tombstone.store), resource => tombstone.store[resource as ResourceConstant] > 0)
+    let stored_resources = _.filter(
+      Object.keys(tombstone.store),
+      resource => tombstone.store[resource as ResourceConstant] > 0
+    );
     if (creep.withdraw(tombstone, stored_resources[0] as ResourceConstant) == ERR_NOT_IN_RANGE) {
       creep.moveTo(tombstone);
     }
@@ -48,6 +51,24 @@ export const roleGrabber = {
     if (!creep.memory.emptying) {
       pickup(creep);
     } else {
+      // IF contain other ressources than energy, drop them to storage
+      let stored_resources = _.filter(
+        Object.keys(creep.store),
+        resource => creep.store[resource as ResourceConstant] > 0
+      );
+      if (stored_resources.length > 1) {
+        const storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
+          filter: structure => {
+            return structure.structureType === STRUCTURE_STORAGE;
+          }
+        });
+        if (!storage) {
+          creep.drop(stored_resources[0] as ResourceConstant);
+        } else if (creep.transfer(storage, stored_resources[1] as ResourceConstant) == ERR_NOT_IN_RANGE) {
+          creep.moveTo(storage);
+        }
+        return;
+      }
       // Extension otherwiese tower otherwise spawn
       // First, try to find the closest extension
       let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
@@ -71,7 +92,9 @@ export const roleGrabber = {
       if (!target) {
         target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure => {
-            return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
+            return (
+              structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250
+            );
           }
         });
       }
