@@ -87,6 +87,10 @@ export const CreepScript = {
     });
   },
   spawnCreeps: function (spawn: StructureSpawn, satic_name: string) {
+    if (spawn.spawning !== null) {
+      return;
+    }
+
     const sources = spawn.room.find(FIND_SOURCES);
     const energy_available = spawn.room.energyAvailable;
     const energy_capacity = spawn.room.energyCapacityAvailable;
@@ -96,9 +100,6 @@ export const CreepScript = {
     );
     SystemScript.printInfo(creepsByRole);
 
-    if (spawn.spawning !== null) {
-      return;
-    }
     const harvesters = creepsByRole["harvester"] || [];
     const miners = creepsByRole["miner"] || [];
     const grabbers = creepsByRole["grabber"] || [];
@@ -113,10 +114,13 @@ export const CreepScript = {
       CreepScript.spawnHarvester(spawn, satic_name);
     } else if (energy_available === energy_capacity) {
       // Spawn Miner
-      if (miners.length <= grabbers.length && miners.length < 3) {
+      if (
+        (miners.length <= grabbers.length && contrlLvl <= 4 && miners.length < 3) ||
+        (contrlLvl >= 5 && miners.length < 2)
+      ) {
         CreepScript.spawnMiner(spawn, satic_name, sources);
         // Spawn Grabber
-      } else if (grabbers.length < 3) {
+      } else if ((contrlLvl <= 3 && grabbers.length < 3) || (contrlLvl >= 4 && grabbers.length < 2)) {
         CreepScript.spawnGrabber(spawn, satic_name);
         // Spawn Upgrader
       } else if (
