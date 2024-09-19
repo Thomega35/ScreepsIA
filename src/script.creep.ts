@@ -21,7 +21,6 @@ export const CreepScript = {
     body_parts = SystemScript.flat(
       Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
     ) as BodyPartConstant[];
-    console.log(body_parts);
     spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
       memory: {
         room: spawn.room,
@@ -155,7 +154,6 @@ export const CreepScript = {
         }
       });
       if (!spawn) {
-        console.log("🚚 Going ");
         CreepScript.doNotDisturb(creep);
       }
       if (spawn && creep.withdraw(spawn, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
