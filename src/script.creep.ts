@@ -115,7 +115,9 @@ export const CreepScript = {
         CreepScript.spawnGrabber(spawn, satic_name);
         // Spawn Upgrader
       } else if (
-        (contrlLvl <= 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
+        (contrlLvl === 1 && upgraders.length < 8) ||
+        (contrlLvl === 2 && upgraders.length < 6) ||
+        (contrlLvl === 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
         (contrlLvl === 4 && upgraders.length < 2) ||
         (contrlLvl >= 5 && upgraders.length < 1)
       ) {
