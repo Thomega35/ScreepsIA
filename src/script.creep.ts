@@ -18,15 +18,9 @@ export const CreepScript = {
         ? (spawn.memory.next_miner_spawn_source + 1) % sources.length
         : 0;
     let body_parts: BodyPartConstant[];
-    if (energy_available < 1800) {
-      body_parts = SystemScript.flat(
-        Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
-      ) as BodyPartConstant[];
-    } else {
-      body_parts = ([MOVE] as BodyPartConstant[]).concat(
-        SystemScript.flat(Array(Math.floor((energy_available - 50) / 100)).fill([WORK]) as string[])
-      );
-    }
+    body_parts = SystemScript.flat(
+      Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
+    ) as BodyPartConstant[];
     console.log(body_parts);
     spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
       memory: {
@@ -43,13 +37,12 @@ export const CreepScript = {
     let body_parts: BodyPartConstant[];
     if (energy_available < 1800) {
       body_parts = SystemScript.flat(
-        Array(Math.floor(energy_available / 100)).fill([MOVE, CARRY]) as string[]
+        Array(Math.floor(energy_available / 100)).fill([CARRY, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] as BodyPartConstant[]).concat(
-        SystemScript.flat(
-          Array(Math.floor((energy_available - 250) / 50)).fill([CARRY]) as string[]
-        ));
+      body_parts = SystemScript.flat(
+        Array(Math.floor((energy_available - 250) / 150)).fill([CARRY, CARRY, MOVE]) as string[]
+      );
     }
     spawn.spawnCreep(body_parts, `${satic_name}🤲${Game.time}`, {
       memory: { room: spawn.room, role: "grabber", working: false, spawn: spawn }
@@ -63,8 +56,7 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] as BodyPartConstant[]).concat(
-        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY])));
+      body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🛠${Game.time}`, {
       memory: { room: spawn.room, role: "upgrader", working: false, upgrading: false, spawn: spawn }
@@ -79,8 +71,7 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] as BodyPartConstant[]).concat(
-        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY])));
+      body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🏗${Game.time}`, {
       memory: { room: spawn.room, role: "builder", working: false, building: false, spawn: spawn }
@@ -162,7 +153,7 @@ export const CreepScript = {
         }
       });
       if (!spawn) {
-        console.log("🚚 Going ")
+        console.log("🚚 Going ");
         CreepScript.doNotDisturb(creep);
       }
       if (spawn && creep.withdraw(spawn, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
