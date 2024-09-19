@@ -23,11 +23,11 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] +
-        SystemScript.flat(
-          Array(Math.floor((energy_available - 50) / 100)).fill([WORK]) as string[]
-        )) as BodyPartConstant[];
+      body_parts = ([MOVE] as BodyPartConstant[]).concat(
+        SystemScript.flat(Array(Math.floor((energy_available - 50) / 100)).fill([WORK]) as string[])
+      );
     }
+    console.log(body_parts);
     spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
       memory: {
         room: spawn.room,
@@ -46,10 +46,10 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 100)).fill([MOVE, CARRY]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] +
+      body_parts = ([MOVE] as BodyPartConstant[]).concat(
         SystemScript.flat(
-          Array(Math.floor((energy_available - 50) / 50)).fill([CARRY]) as string[]
-        )) as BodyPartConstant[];
+          Array(Math.floor((energy_available - 250) / 50)).fill([CARRY]) as string[]
+        ));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🤲${Game.time}`, {
       memory: { room: spawn.room, role: "grabber", working: false, spawn: spawn }
@@ -63,8 +63,8 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] +
-        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY]))) as BodyPartConstant[];
+      body_parts = ([MOVE] as BodyPartConstant[]).concat(
+        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY])));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🛠${Game.time}`, {
       memory: { room: spawn.room, role: "upgrader", working: false, upgrading: false, spawn: spawn }
@@ -79,8 +79,8 @@ export const CreepScript = {
         Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = ([MOVE] +
-        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY]))) as BodyPartConstant[];
+      body_parts = ([MOVE] as BodyPartConstant[]).concat(
+        SystemScript.flat(Array(Math.floor((energy_available - 50) / 150)).fill([WORK, CARRY])));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🏗${Game.time}`, {
       memory: { room: spawn.room, role: "builder", working: false, building: false, spawn: spawn }
@@ -115,8 +115,8 @@ export const CreepScript = {
     } else if (energy_available === energy_capacity) {
       // Spawn Miner
       if (
-        (miners.length <= grabbers.length && contrlLvl <= 4 && miners.length < 3) ||
-        (contrlLvl >= 5 && miners.length < 2)
+        miners.length <= grabbers.length &&
+        ((contrlLvl <= 4 && miners.length < 3) || (contrlLvl >= 5 && miners.length < 2))
       ) {
         CreepScript.spawnMiner(spawn, satic_name, sources);
         // Spawn Grabber
@@ -155,18 +155,20 @@ export const CreepScript = {
     });
 
     // If no storage is found, try to find the closest spawn
-    if (!depots) {
-      const spawns = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
+    if (!depots || depots.length === 0) {
+      const spawn = creep.pos.findClosestByPath(FIND_MY_STRUCTURES, {
         filter: structure => {
           return structure.structureType == STRUCTURE_SPAWN && structure.store.getUsedCapacity(RESOURCE_ENERGY) > 50;
         }
       });
-      if (!spawns) {
+      if (!spawn) {
+        console.log("🚚 Going ")
         CreepScript.doNotDisturb(creep);
       }
-      if (spawns && creep.withdraw(spawns, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(spawns, { visualizePathStyle: { stroke: "#ffaa00" } });
+      if (spawn && creep.withdraw(spawn, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(spawn, { visualizePathStyle: { stroke: "#ffaa00" } });
       }
+      return;
     }
 
     const filterdepots = depots.filter(
