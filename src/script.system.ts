@@ -1,14 +1,3 @@
-const controllerLvlToRoads: { [key: number]: number } = {
-  1: 0,
-  2: 0,
-  3: 12,
-  4: 25,
-  5: 33,
-  6: 33,
-  7: 33,
-  8: 33
-};
-
 const controllerLvlToExtensions: { [key: number]: number } = {
   1: 0,
   2: 5,
@@ -115,16 +104,20 @@ export const SystemScript = {
       }
     }
   },
-  buildExtensions: function (spawn: StructureSpawn) {
-    const requiredExtensions = controllerLvlToExtensions[spawn.room.controller?.level ?? 0];
-
-    let nbExtensions =
+  countExtensions: function (spawn: StructureSpawn): number {
+    return (
       spawn.room.find(FIND_MY_STRUCTURES, {
         filter: { structureType: STRUCTURE_EXTENSION }
       }).length +
       spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
         filter: { structureType: STRUCTURE_EXTENSION }
-      }).length;
+      }).length
+    );
+  },
+  buildExtensions: function (spawn: StructureSpawn) {
+    const requiredExtensions = controllerLvlToExtensions[spawn.room.controller?.level ?? 0];
+
+    let nbExtensions = SystemScript.countExtensions(spawn);
 
     let x = 0;
     let y = 0;
@@ -237,18 +230,46 @@ export const SystemScript = {
     }
   },
   buildTowers: function (spawn: StructureSpawn) {
-    const towers = spawn.room.find(FIND_MY_STRUCTURES, {
-      filter: { structureType: STRUCTURE_TOWER }
-    });
-    if (spawn.room.controller && towers.length < controllerLvlToTowers[spawn.room.controller.level]) {
-      if (spawn.room.controller.level < 4) {
-        return;
+    const nbTowers = SystemScript.countTowers(spawn);
+    if (!spawn.room.controller || spawn.room.controller.level < 4) {
+      return;
+    }
+    if (nbTowers === 0) {
+      SystemScript.createTower(spawn, -5, -5, -10, -10);
+    }
+    if (spawn.room.controller.level < 5) {
+      return;
+    }
+    if (nbTowers === 1) {
+      SystemScript.createTower(spawn, 5, -5, 10, -10);
+    }
+    if (spawn.room.controller.level < 7) {
+      return;
+    }
+    if (nbTowers === 2) {
+      SystemScript.createTower(spawn, -5, 5, -10, 10);
+    }
+  },
+  countTowers: function (spawn: StructureSpawn): number {
+    return (
+      spawn.room.find(FIND_MY_STRUCTURES, {
+        filter: { structureType: STRUCTURE_TOWER }
+      }).length +
+      spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: { structureType: STRUCTURE_TOWER }
+      }).length
+    );
+  },
+  createTower: function (spawn: StructureSpawn, startX: number, startY: number, endX: number, endY: number) {
+    for (let dx = startX; dx > endX; dx--) {
+      for (let dy = startY; dy > endY; dy--) {
+        const lookPos = spawn.room.lookAt(spawn.pos.x + dx, spawn.pos.y + dy)[0];
+        if (lookPos.terrain !== "wall" && lookPos.type !== "structure") {
+          console.log("Creating tower at", spawn.pos.x + dx, spawn.pos.y + dy);
+          spawn.room.createConstructionSite(spawn.pos.x + dx, spawn.pos.y + dy, STRUCTURE_TOWER);
+          return;
+        }
       }
-      spawn.room.createConstructionSite(spawn.pos.x - 5, spawn.pos.y - 5, STRUCTURE_TOWER);
-      if (spawn.room.controller.level < 5) {
-        return;
-      }
-      spawn.room.createConstructionSite(spawn.pos.x - 5, spawn.pos.y + 5, STRUCTURE_TOWER);
     }
   },
   flat: function (arr: any[]) {
