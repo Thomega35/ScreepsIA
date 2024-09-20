@@ -9,69 +9,12 @@ const controllerLvlToExtensions: { [key: number]: number } = {
   8: 60
 };
 
-const controllerLvlToTowers: { [key: number]: number } = {
-  3: 1,
-  5: 2,
-  7: 3,
-  8: 6
-};
-
-const roadLists: Map<number, [number, number][]> = new Map([
-  [
-    2,
-    [
-      [-1, 0],
-      [0, -1],
-      [0, 1],
-      [1, 0]
-    ]
-  ],
-  [
-    3,
-    [
-      [-2, -1],
-      [-2, 1],
-      [-1, -2],
-      [-1, 2],
-      [1, -2],
-      [1, 2],
-      [2, -1],
-      [2, 1]
-    ]
-  ],
-  [
-    4,
-    [
-      [-3, 0],
-      [3, 0],
-      [0, -3],
-      [0, 3],
-      [-3, -2],
-      [-3, 2],
-      [3, -2],
-      [3, 2],
-      [-2, -3],
-      [-2, 3],
-      [2, -3],
-      [2, 3],
-      [-4, 3]
-    ]
-  ],
-  [
-    5,
-    [
-      [-4, -1],
-      [-4, 1],
-      [4, -1],
-      [4, 1],
-      [-1, -4],
-      [-1, 4],
-      [1, -4],
-      [1, 4],
-      [-3, 4]
-    ]
-  ]
-]);
+const around: number[][] = [
+  [-1, 0],
+  [0, -1],
+  [0, 1],
+  [1, 0]
+];
 
 export const SystemScript = {
   generatePixel: function () {
@@ -143,20 +86,34 @@ export const SystemScript = {
       y += dy;
     }
   },
+  buildRoadAroundlistElement: function (extensions: AnyOwnedStructure[] | ConstructionSite[]) {
+    for (const extension of extensions) {
+      for (const pos of around) {
+        if (!extension.room) {
+          continue;
+        }
+        const lookPos = extension.room.lookAt(extension.pos.x + pos[0], extension.pos.y + pos[1])[0];
+        if (lookPos.terrain !== "wall" && lookPos.type !== "structure") {
+          extension.room.createConstructionSite(extension.pos.x + pos[0], extension.pos.y + pos[1], STRUCTURE_ROAD);
+        }
+      }
+    }
+  },
   buildBaseRoads: function (spawn: StructureSpawn) {
     //Roads (not before tower to repair)
     if (!spawn.room.controller || spawn.room.controller.level < 3) {
       return;
     }
-    for (let ctrlLvlIterator = 2; ctrlLvlIterator <= spawn.room.controller.level; ctrlLvlIterator++) {
-      const roadListLvl = roadLists.get(ctrlLvlIterator);
-      if (roadListLvl) {
-        for (const [dx, dy] of roadListLvl) {
-          if (spawn.room.lookAt(spawn.pos.x + dx, spawn.pos.y + dy)[0].terrain !== "wall")
-            spawn.room.createConstructionSite(spawn.pos.x + dx, spawn.pos.y + dy, STRUCTURE_ROAD);
-        }
-      }
-    }
+    //Roads around extensions
+    const extensions = spawn.room.find(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_EXTENSION }
+    });
+    SystemScript.buildRoadAroundlistElement(extensions);
+    //Roads around extensions construction sites
+    const extentionsConstructionSites = spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
+      filter: { structureType: STRUCTURE_EXTENSION }
+    });
+    SystemScript.buildRoadAroundlistElement(extentionsConstructionSites);
     if (spawn.room.controller.level < 4) {
       return;
     }
