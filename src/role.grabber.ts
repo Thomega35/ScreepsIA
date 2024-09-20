@@ -1,76 +1,62 @@
-function pickup(creep: Creep) {
-  const ruin = creep.pos.findClosestByRange(FIND_RUINS, {
-    filter: ruin => {
-      return ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-    }
-  });
-  const tombstone = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
-    filter: tombstone => {
-      return tombstone.store.getUsedCapacity(undefined) > 0;
-    }
-  });
-  const droppedRessource = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
-    filter: resource => {
-      return resource.amount > 100;
-    }
-  });
-
-  if (ruin) {
-    if (creep.withdraw(ruin, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(ruin);
-    }
-  } else if (tombstone) {
-    let storedResources = _.filter(
-      Object.keys(tombstone.store),
-      resource => tombstone.store[resource as ResourceConstant] > 0
-    );
-    if (creep.withdraw(tombstone, storedResources[0] as ResourceConstant) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(tombstone);
-    }
-  } else if (droppedRessource) {
-    if (creep.pickup(droppedRessource) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(droppedRessource);
-    }
-  }
-}
+import { CreepScript } from "script.creep";
 
 export const roleGrabber = {
-  getTarget: function (creep: Creep) {
-    // Extension otherwiese tower otherwise spawn
-    // First, try to find the closest extension
-    let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-      filter: structure => {
-        return structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+  pickup: function (creep: Creep) {
+    let roomObject: Tombstone | Ruin | Resource | null = null;
+    roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
+      filter: ruin => {
+        return ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
       }
     });
-
-    // If no extension is found, try to find the closest spawn
-    if (!target) {
-      target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: structure => {
-          return structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+    if (!roomObject) {
+      roomObject = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
+        filter: tombstone => {
+          return tombstone.store.getUsedCapacity(undefined) > 0;
         }
       });
     }
-
-    // If no spawn is found, try to find the closest tower
-    if (!target) {
-      target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: structure => {
-          return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
+    if (!roomObject) {
+      roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+        filter: resource => {
+          return resource.amount > 100;
         }
       });
     }
-
-    // If no tower is found, try to find the closest storage
-    if (!target) {
-      target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+    if (!roomObject) {
+      return;
+    }
+    // Pickup the resource
+    if (roomObject instanceof Resource) {
+      if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(roomObject);
+      }
+      // Withdraw from the tombstone or ruin
+    } else {
+      let storedResources = _.filter(
+        Object.keys(roomObject.store),
+        resource => roomObject.store[resource as ResourceConstant] > 0
+      );
+      if (creep.withdraw(roomObject, storedResources[0] as ResourceConstant) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(roomObject);
+      }
+    }
+  },
+  emptyMinerals: function (creep: Creep): boolean {
+    let storedResources = _.filter(Object.keys(creep.store), resource => creep.store[resource as ResourceConstant] > 0);
+    if (storedResources.length > 1) {
+      const storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: structure => {
-          return structure.structureType === STRUCTURE_STORAGE && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+          return structure.structureType === STRUCTURE_STORAGE;
         }
       });
+      if (!storage) {
+        creep.drop(storedResources[0] as ResourceConstant);
+      } else if (creep.transfer(storage, storedResources[1] as ResourceConstant) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(storage);
+      }
+      return true;
     }
-    return target;
+    return false;
   },
   updateWorking: function (creep: Creep) {
     if (creep.memory.role !== "grabber") {
@@ -88,35 +74,24 @@ export const roleGrabber = {
   },
   run: function (creep: Creep) {
     roleGrabber.updateWorking(creep);
+    // Energy gathering mode
     if (!creep.memory.working) {
-      pickup(creep);
+      roleGrabber.pickup(creep);
       return;
     }
-    // IF contain other ressources than energy, drop them to storage
-    let storedResources = _.filter(
-      Object.keys(creep.store),
-      resource => creep.store[resource as ResourceConstant] > 0
-    );
-    if (storedResources.length > 1) {
-      const storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
-        filter: structure => {
-          return structure.structureType === STRUCTURE_STORAGE;
-        }
-      });
-      if (!storage) {
-        creep.drop(storedResources[0] as ResourceConstant);
-      } else if (creep.transfer(storage, storedResources[1] as ResourceConstant) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(storage);
-      }
-      return;
-    }
-    const target = roleGrabber.getTarget(creep);
-    if (!target) {
+    // If contain other ressources than energy, drop them to storage
+    if (roleGrabber.emptyMinerals(creep)) {
       return;
     }
 
-    if (creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(target, { visualizePathStyle: { stroke: "#ffffff" } });
+    // Send energy to emptying structure
+    const emptyingStructure = CreepScript.getEmptyingStructure(creep);
+    if (!emptyingStructure) {
+      return;
+    }
+
+    if (creep.transfer(emptyingStructure, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(emptyingStructure, { visualizePathStyle: { stroke: "#ffffff" } });
     }
   }
 };

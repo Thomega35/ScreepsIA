@@ -177,5 +177,42 @@ export const CreepScript = {
     if (depot && creep.withdraw(depot, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
       creep.moveTo(depot, { visualizePathStyle: { stroke: "#ffaa00" } });
     }
-  }
+  },
+  getEmptyingStructure: function (creep: Creep) {
+    // Extension otherwiese tower otherwise spawn
+    // First, try to find the closest extension
+    let emptyingStructure = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+      filter: structure => {
+        return structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+      }
+    });
+
+    // If no extension is found, try to find the closest spawn
+    if (!emptyingStructure) {
+      emptyingStructure = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: structure => {
+          return structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+        }
+      });
+    }
+
+    // If no spawn is found, try to find the closest tower
+    if (!emptyingStructure) {
+      emptyingStructure = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: structure => {
+          return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
+        }
+      });
+    }
+
+    // If no tower is found, try to find the closest storage
+    if (!emptyingStructure) {
+      emptyingStructure = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+        filter: structure => {
+          return structure.structureType === STRUCTURE_STORAGE && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+        }
+      });
+    }
+    return emptyingStructure;
+  },
 };
