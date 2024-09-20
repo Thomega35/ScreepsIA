@@ -3,29 +3,29 @@ import { CreepScript } from "script.creep";
 export const roleBuilder = {
   /** @param {Creep} creep **/
   getConstructionSite: function (creep: Creep) {
-    let construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+    let constructionSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
       filter: site => {
         return site.structureType === STRUCTURE_EXTENSION;
       }
     });
-    if (!construction_site) {
-      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+    if (!constructionSite) {
+      constructionSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
         filter: site => {
           return site.structureType === STRUCTURE_TOWER;
         }
       });
     }
-    if (!construction_site) {
-      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+    if (!constructionSite) {
+      constructionSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
         filter: site => {
           return site.structureType === STRUCTURE_STORAGE;
         }
       });
     }
-    if (!construction_site) {
-      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+    if (!constructionSite) {
+      constructionSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
     }
-    return construction_site;
+    return constructionSite;
   },
   run: function (creep: Creep) {
     if (creep.memory.working === undefined || creep.memory.working === null) {
@@ -44,13 +44,13 @@ export const roleBuilder = {
 
     // Building mode
     if (creep.memory.working) {
-      const construction_site = roleBuilder.getConstructionSite(creep);
-      if (!construction_site) {
+      const constructionSite = roleBuilder.getConstructionSite(creep);
+      if (!constructionSite) {
         creep.say("😭 No work : going kamikaze mode 💥");
         creep.suicide();
       }
-      if (construction_site && creep.build(construction_site) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(construction_site, { visualizePathStyle: { stroke: "#ffffff" } });
+      if (constructionSite && creep.build(constructionSite) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(constructionSite, { visualizePathStyle: { stroke: "#ffffff" } });
       }
     }
     // Energy gathering mode

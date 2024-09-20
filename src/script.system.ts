@@ -20,9 +20,9 @@ export const SystemScript = {
     for (const role in creepsByRole) {
       let minerinfo = "";
       if (role === "miner") {
-        const miner_by_source = _.groupBy(creepsByRole[role], creep => creep.memory.source?.id);
-        Object.keys(miner_by_source).forEach((source, index) => {
-          minerinfo += `Source ${index}: ${miner_by_source[source].length} miners `;
+        const minerBySource = _.groupBy(creepsByRole[role], creep => creep.memory.source?.id);
+        Object.keys(minerBySource).forEach((source, index) => {
+          minerinfo += `Source ${index}: ${minerBySource[source].length} miners `;
         });
       }
       console.log(`Role ${role}: ${creepsByRole[role].length} creeps ` + minerinfo);

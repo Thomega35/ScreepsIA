@@ -1,89 +1,89 @@
 import { SystemScript } from "script.system";
 
 export const CreepScript = {
-  spawnHarvester: function (spawn: StructureSpawn, satic_name: string) {
-    const energy_available = spawn.room.energyAvailable;
-    const body_parts = SystemScript.flat(
-      Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
+  spawnHarvester: function (spawn: StructureSpawn, saticName: string) {
+    const energyAvailable = spawn.room.energyAvailable;
+    const bodyParts = SystemScript.flat(
+      Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
     ) as BodyPartConstant[];
-    spawn.spawnCreep(body_parts, `${satic_name}☄${Game.time}`, {
+    spawn.spawnCreep(bodyParts, `${saticName}☄${Game.time}`, {
       memory: { room: spawn.room, role: "harvester", working: false, spawn: spawn }
     });
   },
 
-  spawnMiner: function (spawn: StructureSpawn, satic_name: string, sources: Source[]) {
-    const energy_available = spawn.room.energyAvailable;
-    spawn.memory.next_miner_spawn_source =
-      spawn.memory.next_miner_spawn_source !== undefined && spawn.memory.next_miner_spawn_source !== null
-        ? (spawn.memory.next_miner_spawn_source + 1) % sources.length
+  spawnMiner: function (spawn: StructureSpawn, saticName: string, sources: Source[]) {
+    const energyAvailable = spawn.room.energyAvailable;
+    spawn.memory.nextMinerSpawnSource =
+      spawn.memory.nextMinerSpawnSource !== undefined && spawn.memory.nextMinerSpawnSource !== null
+        ? (spawn.memory.nextMinerSpawnSource + 1) % sources.length
         : 0;
-    let body_parts: BodyPartConstant[];
-    body_parts = SystemScript.flat(
-      Array(Math.floor(energy_available / 250)).fill([WORK, WORK, MOVE]) as string[]
+    let bodyParts: BodyPartConstant[];
+    bodyParts = SystemScript.flat(
+      Array(Math.floor(energyAvailable / 250)).fill([WORK, WORK, MOVE]) as string[]
     ) as BodyPartConstant[];
-    spawn.spawnCreep(body_parts, `${satic_name}⛏${Game.time}`, {
+    spawn.spawnCreep(bodyParts, `${saticName}⛏${Game.time}`, {
       memory: {
         room: spawn.room,
         role: "miner",
         working: false,
-        source: sources[spawn.memory.next_miner_spawn_source],
+        source: sources[spawn.memory.nextMinerSpawnSource],
         spawn: spawn
       }
     });
   },
-  spawnGrabber: function (spawn: StructureSpawn, satic_name: string) {
-    const energy_available = spawn.room.energyAvailable;
-    let body_parts: BodyPartConstant[];
-    if (energy_available < 1800) {
-      body_parts = SystemScript.flat(
-        Array(Math.floor(energy_available / 100)).fill([CARRY, MOVE]) as string[]
+  spawnGrabber: function (spawn: StructureSpawn, saticName: string) {
+    const energyAvailable = spawn.room.energyAvailable;
+    let bodyParts: BodyPartConstant[];
+    if (energyAvailable < 1800) {
+      bodyParts = SystemScript.flat(
+        Array(Math.floor(energyAvailable / 100)).fill([CARRY, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = SystemScript.flat(
-        Array(Math.floor((energy_available - 250) / 150)).fill([CARRY, CARRY, MOVE]) as string[]
+      bodyParts = SystemScript.flat(
+        Array(Math.floor((energyAvailable - 250) / 150)).fill([CARRY, CARRY, MOVE]) as string[]
       );
     }
-    spawn.spawnCreep(body_parts, `${satic_name}🤲${Game.time}`, {
+    spawn.spawnCreep(bodyParts, `${saticName}🤲${Game.time}`, {
       memory: { room: spawn.room, role: "grabber", working: false, spawn: spawn }
     });
   },
-  spawnUpgrader: function (spawn: StructureSpawn, satic_name: string) {
-    const energy_available = spawn.room.energyAvailable;
-    let body_parts: BodyPartConstant[];
-    if (energy_available < 1800) {
-      body_parts = SystemScript.flat(
-        Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
+  spawnUpgrader: function (spawn: StructureSpawn, saticName: string) {
+    const energyAvailable = spawn.room.energyAvailable;
+    let bodyParts: BodyPartConstant[];
+    if (energyAvailable < 1800) {
+      bodyParts = SystemScript.flat(
+        Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
+      bodyParts = SystemScript.flat(Array(Math.floor((energyAvailable - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
-    spawn.spawnCreep(body_parts, `${satic_name}🛠${Game.time}`, {
+    spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
       memory: { room: spawn.room, role: "upgrader", working: false, spawn: spawn }
     });
   },
 
-  spawnBuilder: function (spawn: StructureSpawn, satic_name: string) {
-    const energy_available = spawn.room.energyAvailable;
-    let body_parts: BodyPartConstant[];
-    if (energy_available < 1800) {
-      body_parts = SystemScript.flat(
-        Array(Math.floor(energy_available / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
+  spawnBuilder: function (spawn: StructureSpawn, saticName: string) {
+    const energyAvailable = spawn.room.energyAvailable;
+    let bodyParts: BodyPartConstant[];
+    if (energyAvailable < 1800) {
+      bodyParts = SystemScript.flat(
+        Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
       ) as BodyPartConstant[];
     } else {
-      body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
+      bodyParts = SystemScript.flat(Array(Math.floor((energyAvailable - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
-    spawn.spawnCreep(body_parts, `${satic_name}🏗${Game.time}`, {
+    spawn.spawnCreep(bodyParts, `${saticName}🏗${Game.time}`, {
       memory: { room: spawn.room, role: "builder", working: false, spawn: spawn }
     });
   },
-  spawnCreeps: function (spawn: StructureSpawn, satic_name: string) {
+  spawnCreeps: function (spawn: StructureSpawn, saticName: string) {
     if (spawn.spawning !== null) {
       return;
     }
 
     const sources = spawn.room.find(FIND_SOURCES);
-    const energy_available = spawn.room.energyAvailable;
-    const energy_capacity = spawn.room.energyCapacityAvailable;
+    const energyAvailable = spawn.room.energyAvailable;
+    const energyCapacity = spawn.room.energyCapacityAvailable;
     const creepsByRole = _.groupBy(
       Object.values(Game.creeps).filter(creep => creep.memory.spawn?.id === spawn.id),
       creep => creep.memory.role
@@ -100,18 +100,18 @@ export const CreepScript = {
     const contrlLvl = spawn.room.controller?.level ?? 0;
 
     // Spawn Harvester
-    if ((miners.length == 0 || grabbers.length == 0) && energy_available >= 300 && harvesters.length < 2) {
-      CreepScript.spawnHarvester(spawn, satic_name);
-    } else if (energy_available === energy_capacity) {
+    if ((miners.length == 0 || grabbers.length == 0) && energyAvailable >= 300 && harvesters.length < 2) {
+      CreepScript.spawnHarvester(spawn, saticName);
+    } else if (energyAvailable === energyCapacity) {
       // Spawn Miner
       if (
         miners.length <= grabbers.length &&
         ((contrlLvl <= 4 && miners.length < 3) || (contrlLvl >= 5 && miners.length < 2))
       ) {
-        CreepScript.spawnMiner(spawn, satic_name, sources);
+        CreepScript.spawnMiner(spawn, saticName, sources);
         // Spawn Grabber
       } else if ((contrlLvl <= 3 && grabbers.length < 3) || (contrlLvl >= 4 && grabbers.length < 2)) {
-        CreepScript.spawnGrabber(spawn, satic_name);
+        CreepScript.spawnGrabber(spawn, saticName);
         // Spawn Upgrader
       } else if (
         (contrlLvl === 1 && upgraders.length < 8) ||
@@ -119,13 +119,13 @@ export const CreepScript = {
         (contrlLvl === 4 && upgraders.length < 2) ||
         (contrlLvl >= 5 && upgraders.length < 1)
       ) {
-        CreepScript.spawnUpgrader(spawn, satic_name);
+        CreepScript.spawnUpgrader(spawn, saticName);
       } else if (
         (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 &&
           ((contrlLvl <= 3 && builders.length < 3) || (contrlLvl <= 4 && builders.length < 2))) ||
         (contrlLvl >= 5 && builders.length < 1)
       ) {
-        CreepScript.spawnBuilder(spawn, satic_name);
+        CreepScript.spawnBuilder(spawn, saticName);
       }
     }
   },

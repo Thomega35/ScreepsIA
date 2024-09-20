@@ -32,7 +32,7 @@ declare global {
   }
 
   interface SpawnMemory {
-    next_miner_spawn_source: number;
+    nextMinerSpawnSource: number;
   }
 
   // Syntax for adding proprties to `global` (ex "global.log")
