@@ -77,24 +77,29 @@ export const BuildScript = {
     if (!spawn.room.controller || spawn.room.controller.level < 3) {
       return;
     }
-    //Roads around extensions
-    const extensions = spawn.room.find(FIND_MY_STRUCTURES, {
-      filter: { structureType: STRUCTURE_EXTENSION }
-    });
-    SystemScript.buildRoadAroundlistElement(extensions);
-    //Roads around extensions construction sites
-    const extentionsConstructionSites = spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
-      filter: { structureType: STRUCTURE_EXTENSION }
-    });
-    SystemScript.buildRoadAroundlistElement(extentionsConstructionSites);
+    // Roads around extensions and extensions construction sites
+    const extensionsAndSites = [
+      ...spawn.room.find(FIND_MY_STRUCTURES, {
+        filter: { structureType: STRUCTURE_EXTENSION }
+      }),
+      ...spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: { structureType: STRUCTURE_EXTENSION }
+      })
+    ];
+    SystemScript.buildRoadAroundlistElement(extensionsAndSites);
   },
   buildTowerRoads: function (spawn: StructureSpawn) {
     if (spawn.room.controller && spawn.room.controller.level < 4) {
       return;
     }
-    const towers = spawn.room.find(FIND_MY_STRUCTURES, {
-      filter: { structureType: STRUCTURE_TOWER }
-    });
+    const towers = [
+      ...spawn.room.find(FIND_MY_STRUCTURES, {
+        filter: { structureType: STRUCTURE_TOWER }
+      }),
+      ...spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: { structureType: STRUCTURE_TOWER }
+      })
+    ];
     for (const tower of towers) {
       const path = spawn.pos.findPathTo(tower.pos, { ignoreCreeps: true });
       for (const point of path) {
@@ -116,12 +121,14 @@ export const BuildScript = {
     if (!spawn.room.controller || spawn.room.controller.level < 4) {
       return;
     }
-    const storages = spawn.room.find(FIND_MY_STRUCTURES, {
-      filter: { structureType: STRUCTURE_STORAGE }
-    });
-    if (!storages || storages.length === 0) {
-      return;
-    }
+    const storages = [
+      ...spawn.room.find(FIND_MY_STRUCTURES, {
+        filter: { structureType: STRUCTURE_STORAGE }
+      }),
+      ...spawn.room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: { structureType: STRUCTURE_STORAGE }
+      })
+    ];
     for (const storage of storages) {
       const path = spawn.pos.findPathTo(storage.pos, { ignoreCreeps: true });
       for (const point of path) {

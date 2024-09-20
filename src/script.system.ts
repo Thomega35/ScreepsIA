@@ -56,7 +56,7 @@ export const SystemScript = {
       }).length
     );
   },
-  buildRoadAroundlistElement: function (extensions: AnyOwnedStructure[] | ConstructionSite[]) {
+  buildRoadAroundlistElement: function (extensions: (AnyOwnedStructure | ConstructionSite)[]) {
     for (const extension of extensions) {
       for (const pos of around) {
         if (!extension.room) {
