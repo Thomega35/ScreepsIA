@@ -13,7 +13,7 @@ export class ErrorMapper {
   }
 
   // Cache previously mapped traces to improve performance
-  public static cache: { [key: string]: string } = {};
+  public static readonly cache: { [key: string]: string } = {};
 
   /**
    * Generates a stack trace using a source map generate original symbol names.
@@ -31,7 +31,7 @@ export class ErrorMapper {
     }
 
     // eslint-disable-next-line no-useless-escape
-    const re = /^\s+at\s+(.+?\s+)?\(?([0-z._\-\\\/]+):(\d+):(\d+)\)?$/gm;
+    const re = /^\s+at\s+(.+?\s+)?\(?([0-z._\-\\/]+):(\d+):(\d+)\)?$/gm;
     let match: RegExpExecArray | null;
     let outStack = error.toString();
 
