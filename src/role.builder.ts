@@ -2,6 +2,31 @@ import { CreepScript } from "script.creep";
 
 export const roleBuilder = {
   /** @param {Creep} creep **/
+  getConstructionSite: function (creep: Creep) {
+    let construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+      filter: site => {
+        return site.structureType === STRUCTURE_EXTENSION;
+      }
+    });
+    if (!construction_site) {
+      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+        filter: site => {
+          return site.structureType === STRUCTURE_TOWER;
+        }
+      });
+    }
+    if (!construction_site) {
+      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+        filter: site => {
+          return site.structureType === STRUCTURE_STORAGE;
+        }
+      });
+    }
+    if (!construction_site) {
+      construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+    }
+    return construction_site;
+  },
   run: function (creep: Creep) {
     if (creep.memory.working === undefined || creep.memory.working === null) {
       creep.memory.working = false;
@@ -19,7 +44,7 @@ export const roleBuilder = {
 
     // Building mode
     if (creep.memory.working) {
-      const construction_site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+      const construction_site = roleBuilder.getConstructionSite(creep);
       if (!construction_site) {
         creep.say("😭 No work : going kamikaze mode 💥");
         creep.suicide();
@@ -32,5 +57,5 @@ export const roleBuilder = {
     else {
       CreepScript.findEnergy(creep);
     }
-  },
+  }
 };
