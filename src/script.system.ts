@@ -109,8 +109,8 @@ export const SystemScript = {
         }
       });
       //EACH TOWER
-      for (let towerIndex in towers) {
-        const tower = towers[towerIndex] as StructureTower;
+      // Precision for TypeScript otherwise the compiler will complain
+      for (const tower of towers as StructureTower[]) {
         //ATTACK
         let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
           filter: creep => {
@@ -123,7 +123,11 @@ export const SystemScript = {
         //REPAIR
         let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure =>
-            structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL && structure.hits < 30000
+            structure.hits < structure.hitsMax &&
+            structure.structureType != STRUCTURE_WALL &&
+            ((structure.structureType === STRUCTURE_RAMPART && structure.hits < 30000) ||
+              (structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax / 3) ||
+              (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_ROAD))
         });
         if (closestDamagedStructure) {
           tower.repair(closestDamagedStructure);
