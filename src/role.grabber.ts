@@ -4,41 +4,33 @@ export const roleGrabber = {
   pickup: function (creep: Creep) {
     let roomObject: Tombstone | Ruin | Resource | null = null;
     roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
-      filter: ruin => {
-        return ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0;
-      }
+      filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
     });
     if (!roomObject) {
       roomObject = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
-        filter: tombstone => {
-          return tombstone.store.getUsedCapacity(undefined) > 0;
-        }
+        filter: tombstone => tombstone.store.getUsedCapacity(undefined) > 0
       });
     }
     if (!roomObject) {
       roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
-        filter: resource => {
-          return resource.amount > 100;
-        }
+        filter: resource => resource.amount > 100
       });
     }
     if (!roomObject) {
       return;
     }
-    // Pickup the resource
-    if (roomObject instanceof Resource) {
-      if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(roomObject);
-      }
-      // Withdraw from the tombstone or ruin
-    } else {
+    // Withdraw from the tombstone or ruin
+    if (roomObject instanceof Tombstone || roomObject instanceof Ruin) {
       let storedResources = _.filter(
-        Object.keys(roomObject.store),
-        resource => roomObject.store[resource as ResourceConstant] > 0
+        Object.keys(roomObject.store) as ResourceConstant[],
+        // This assertion is unnecessary but TypeScript is not smart enough to understand it
+        resource => (roomObject as Tombstone | Ruin).store[resource] > 0
       );
-      if (creep.withdraw(roomObject, storedResources[0] as ResourceConstant) == ERR_NOT_IN_RANGE) {
+      if (creep.withdraw(roomObject, storedResources[0]) == ERR_NOT_IN_RANGE) {
         creep.moveTo(roomObject);
       }
+    } else if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
+      creep.moveTo(roomObject);
     }
   },
   emptyMinerals: function (creep: Creep): boolean {
@@ -79,7 +71,7 @@ export const roleGrabber = {
       roleGrabber.pickup(creep);
       return;
     }
-    // If contain other ressources than energy, drop them to storage
+    // If contain other resources than energy, drop them to storage
     if (roleGrabber.emptyMinerals(creep)) {
       return;
     }
