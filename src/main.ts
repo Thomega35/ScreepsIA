@@ -6,6 +6,7 @@ import { roleGrabber } from "role.grabber";
 import { roleBuilder } from "role.builder";
 import { SystemScript } from "script.system";
 import { CreepScript } from "script.creep";
+import { BuildScript } from "script.build";
 
 declare global {
   /*
@@ -82,17 +83,24 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
     if (Game.time % 100 === 0) {
       console.log("🔨Building cycle");
-      SystemScript.buildBaseRoads(spawn);
+      // Base building
+      BuildScript.buildExtensions(spawn);
 
-      SystemScript.buildExtensions(spawn);
+      BuildScript.buildTowers(spawn);
 
-      SystemScript.buildTowers(spawn);
+      BuildScript.buildStorage(spawn);
 
-      SystemScript.buildUpgradeRoads(spawn);
+      // Road building
+      BuildScript.buildExtensionsRoads(spawn);
 
-      SystemScript.buildMinerRoads(spawn);
+      BuildScript.buildTowerRoads(spawn);
 
-      SystemScript.buildTowerRoads(spawn);
+      BuildScript.buildStorageRoads(spawn);
+
+      // Road room
+      BuildScript.buildUpgradeRoads(spawn);
+
+      BuildScript.buildMinerRoads(spawn);
     }
   }
 
