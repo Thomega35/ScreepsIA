@@ -130,6 +130,10 @@ export const CreepScript = {
     }
   },
   doNotDisturb: function (creep: Creep) {
+    if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+      creep.memory.working = true;
+      return;
+    }
     const spawn = Game.getObjectById(creep.memory.spawn?.id);
     const WaitPosition = spawn
       ? new RoomPosition(spawn.pos.x - 10, spawn.pos.y + 10, spawn.pos.roomName)
