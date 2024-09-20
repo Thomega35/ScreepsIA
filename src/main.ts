@@ -28,10 +28,7 @@ declare global {
     room: Room;
     working: boolean;
     spawn: StructureSpawn;
-    upgrading?: boolean;
     source?: Source;
-    emptying?: boolean;
-    building?: boolean;
   }
 
   interface SpawnMemory {

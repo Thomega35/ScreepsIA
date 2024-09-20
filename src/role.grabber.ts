@@ -39,16 +39,16 @@ export const roleGrabber = {
     if (creep.memory.role !== "grabber") {
       return;
     }
-    if (creep.memory.emptying === undefined || creep.memory.emptying === null) {
-      creep.memory.emptying = false;
+    if (creep.memory.working === undefined || creep.memory.working === null) {
+      creep.memory.working = false;
     }
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) <= 25) {
-      creep.memory.emptying = false;
+      creep.memory.working = false;
     }
     if (creep.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) {
-      creep.memory.emptying = true;
+      creep.memory.working = true;
     }
-    if (!creep.memory.emptying) {
+    if (!creep.memory.working) {
       pickup(creep);
     } else {
       // IF contain other ressources than energy, drop them to storage

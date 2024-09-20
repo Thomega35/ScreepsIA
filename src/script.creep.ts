@@ -58,7 +58,7 @@ export const CreepScript = {
       body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🛠${Game.time}`, {
-      memory: { room: spawn.room, role: "upgrader", working: false, upgrading: false, spawn: spawn }
+      memory: { room: spawn.room, role: "upgrader", working: false, spawn: spawn }
     });
   },
 
@@ -73,7 +73,7 @@ export const CreepScript = {
       body_parts = SystemScript.flat(Array(Math.floor((energy_available - 50) / 200)).fill([WORK, CARRY, MOVE]));
     }
     spawn.spawnCreep(body_parts, `${satic_name}🏗${Game.time}`, {
-      memory: { room: spawn.room, role: "builder", working: false, building: false, spawn: spawn }
+      memory: { room: spawn.room, role: "builder", working: false, spawn: spawn }
     });
   },
   spawnCreeps: function (spawn: StructureSpawn, satic_name: string) {
