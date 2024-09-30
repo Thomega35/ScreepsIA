@@ -121,9 +121,10 @@ export const CreepScript = {
       ) {
         CreepScript.spawnUpgrader(spawn, saticName);
       } else if (
-        (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 &&
-          ((contrlLvl <= 3 && builders.length < 3) || (contrlLvl <= 4 && builders.length < 2))) ||
-        (contrlLvl >= 5 && builders.length < 1)
+        isConstructionSite &&
+        ((contrlLvl <= 3 && builders.length < 3) ||
+          (contrlLvl <= 4 && builders.length < 2) ||
+          (contrlLvl >= 5 && builders.length < 1))
       ) {
         CreepScript.spawnBuilder(spawn, saticName);
       }
@@ -214,5 +215,5 @@ export const CreepScript = {
       });
     }
     return emptyingStructure;
-  },
+  }
 };
