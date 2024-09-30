@@ -87,12 +87,14 @@ export const SystemScript = {
     endY: number,
     structureType: STRUCTURE_TOWER | STRUCTURE_STORAGE
   ) {
-    for (let dx = startX; dx > endX; dx--) {
-      for (let dy = startY; dy > endY; dy--) {
-        const lookPos = spawn.room.lookAt(spawn.pos.x + dx, spawn.pos.y + dy)[0];
+    for (let dx = 0; endX > 0 ? dx < endX : dx > endX; dx += endX > 0 ? 1 : -1) {
+      for (let dy = 0; endY > 0 ? dy < endY : dy > endY; dy += endY > 0 ? 1 : -1) {
+        const x = spawn.pos.x + startX + dx;
+        const y = spawn.pos.y + startY + dy;
+        const lookPos = spawn.room.lookAt(x, y)[0];
         if (lookPos.terrain !== "wall" && lookPos.type !== "structure") {
-          console.log("Creating tower at", spawn.pos.x + dx, spawn.pos.y + dy);
-          spawn.room.createConstructionSite(spawn.pos.x + dx, spawn.pos.y + dy, structureType);
+          console.log(`Creating ${structureType} at ${x}, ${y}`);
+          spawn.room.createConstructionSite(x, y, structureType);
           return;
         }
       }
