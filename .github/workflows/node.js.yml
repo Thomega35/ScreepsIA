@@ -34,4 +34,4 @@ jobs:
         args: '*.js'
         name: dist-without-markdown
         path: |
-          *
+          dist/*
