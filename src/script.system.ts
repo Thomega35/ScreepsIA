@@ -105,16 +105,15 @@ export const SystemScript = {
   },
   updateTower: function () {
     for (let room in Game.rooms) {
-      let towers = Game.rooms[room].find(FIND_STRUCTURES, {
+      const towers = Game.rooms[room].find(FIND_STRUCTURES, {
         filter: function (object) {
           return object.structureType === STRUCTURE_TOWER;
         }
       });
       //EACH TOWER
-      // Precision for TypeScript otherwise the compiler will complain
-      for (const tower of towers as StructureTower[]) {
+      for (const tower of towers) {
         //ATTACK
-        let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
+        const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
           filter: creep => {
             return !creep.name.toLowerCase().includes("scala");
           }
@@ -123,7 +122,7 @@ export const SystemScript = {
           tower.attack(closestHostile);
         }
         //REPAIR
-        let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
+        const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
           filter: structure =>
             structure.hits < structure.hitsMax &&
             structure.structureType != STRUCTURE_WALL &&
