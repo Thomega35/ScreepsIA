@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [22.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -26,9 +26,12 @@ jobs:
     - run: npm ci
     - run: npm run build --if-present
     - name: Upload the artifacts
-      uses: skx/github-action-publish-binaries@master
+      uses: actions/upload-artifact@v4
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         releaseId: ${{ needs.create_release.outputs.id }}
         args: '*.js'
+        name: dist-without-markdown
+        path: |
+          *
