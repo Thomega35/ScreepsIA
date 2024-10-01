@@ -18,3 +18,7 @@ You will find here the script which control my units online and helped me learn 
 Screeps Typescript Starter is a starting point for a Screeps AI written in Typescript. It provides everything you need to start writing your AI whilst leaving `main.ts` as empty as possible.
 
 You can access the original project [here](https://github.com/screepers/screeps-typescript-starter)
+
+# Version
+
+Eslint from version 9 and up are not supported. The last version supported is 8.57.1
