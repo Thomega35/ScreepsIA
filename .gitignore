@@ -91,4 +91,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Project specific
 test.js
+.env
