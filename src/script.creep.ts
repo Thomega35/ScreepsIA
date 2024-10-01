@@ -1,4 +1,6 @@
 import { SystemScript } from "script.system";
+import _ from "lodash";
+
 
 export const CreepScript = {
   spawnHarvester: function (spawn: StructureSpawn, saticName: string) {

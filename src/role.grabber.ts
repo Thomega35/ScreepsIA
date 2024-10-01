@@ -1,4 +1,6 @@
 import { CreepScript } from "script.creep";
+import _ from "lodash";
+
 
 export const roleGrabber = {
   pickup: function (creep: Creep) {
@@ -24,7 +26,7 @@ export const roleGrabber = {
       let storedResources = _.filter(
         Object.keys(roomObject.store) as ResourceConstant[],
         // This assertion is unnecessary but TypeScript is not smart enough to understand it
-        resource => (roomObject as Tombstone | Ruin).store[resource] > 0
+        resource => (roomObject).store[resource] > 0
       );
       if (creep.withdraw(roomObject, storedResources[0]) == ERR_NOT_IN_RANGE) {
         creep.moveTo(roomObject);
