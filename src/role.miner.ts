@@ -1,4 +1,4 @@
-
+// Miner only creep (need grabber to gather energy)
 export const roleMiner = {
     run: function(creep: Creep) {
         if (!creep.memory.source) {

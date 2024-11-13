@@ -1,5 +1,6 @@
 import { CreepScript } from "script.creep";
 
+// Simple builder creep
 export const roleBuilder = {
   /** @param {Creep} creep **/
   getConstructionSite: function (creep: Creep) {

@@ -1,5 +1,6 @@
 import _ from "lodash";
 
+// Scripts annex
 const around: number[][] = [
   [-1, 0],
   [0, -1],

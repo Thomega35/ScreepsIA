@@ -1,7 +1,7 @@
 import { CreepScript } from "script.creep";
 import _ from "lodash";
 
-
+// Complex energy grabber creep (need miner to work)
 export const roleGrabber = {
   pickup: function (creep: Creep) {
     let roomObject: Tombstone | Ruin | Resource | null = null;

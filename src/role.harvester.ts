@@ -1,5 +1,6 @@
 import { CreepScript } from "script.creep";
 
+// Classic autonom ressource gathering creep
 export const roleHarvester = {
   run: function (creep: Creep) {
     if (creep.store.getFreeCapacity() > 0) {

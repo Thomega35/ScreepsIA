@@ -1,7 +1,7 @@
 import { SystemScript } from "script.system";
 import _ from "lodash";
 
-
+// Scripts related with creeps
 export const CreepScript = {
   spawnHarvester: function (spawn: StructureSpawn, saticName: string) {
     const energyAvailable = spawn.room.energyAvailable;

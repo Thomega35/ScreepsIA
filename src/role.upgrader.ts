@@ -1,5 +1,6 @@
 import { CreepScript } from "script.creep";
 
+// Simple upgrader creep
 export const roleUpgrader = {
   run: function (creep: Creep) {
     if (creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
@@ -11,11 +12,13 @@ export const roleUpgrader = {
       creep.say("⚡ upgrade");
     }
 
+    if (!creep.room.controller) {
+      return;
+    }
     // Upgrading mode
     if (creep.memory.working) {
-      const controller = creep.room.controller;
-      creep.moveTo(controller!, { visualizePathStyle: { stroke: "#ffffff" } });
-      creep.upgradeController(controller!);
+      creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: "#ffffff" } });
+      creep.upgradeController(creep.room.controller);
 
       // Energy gathering mode
     } else {

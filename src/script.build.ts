@@ -1,5 +1,6 @@
 import { SystemScript } from "script.system";
 
+// Scripts related with structure building
 const controllerLvlToExtensions: { [key: number]: number } = {
   1: 0,
   2: 5,
