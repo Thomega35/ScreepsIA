@@ -3,38 +3,8 @@ import _ from "lodash";
 
 // Complex energy grabber creep (need miner to work)
 export const roleGrabber = {
-  pickup: function (creep: Creep) {
-    let roomObject: Tombstone | Ruin | Resource | null = null;
-    roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
-      filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
-    });
-    if (!roomObject) {
-      roomObject = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
-        filter: tombstone => tombstone.store.getUsedCapacity(undefined) > 0
-      });
-    }
-    if (!roomObject) {
-      roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
-        filter: resource => resource.amount > 100
-      });
-    }
-    if (!roomObject) {
-      return;
-    }
-    // Withdraw from the tombstone or ruin
-    if (roomObject instanceof Tombstone || roomObject instanceof Ruin) {
-      let storedResources = _.filter(
-        Object.keys(roomObject.store) as ResourceConstant[],
-        // This assertion is unnecessary but TypeScript is not smart enough to understand it
-        resource => (roomObject).store[resource] > 0
-      );
-      if (creep.withdraw(roomObject, storedResources[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(roomObject);
-      }
-    } else if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(roomObject);
-    }
-  },
+  // The custom 'pickup' function is removed, as its functionality is covered by CreepScript.findEnergy
+
   emptyMinerals: function (creep: Creep): boolean {
     let storedResources = _.filter(Object.keys(creep.store), resource => creep.store[resource as ResourceConstant] > 0);
     if (storedResources.length > 1) {
@@ -70,7 +40,7 @@ export const roleGrabber = {
     roleGrabber.updateWorking(creep);
     // Energy gathering mode
     if (!creep.memory.working) {
-      roleGrabber.pickup(creep);
+      CreepScript.findEnergy(creep); // Use the centralized findEnergy function
       return;
     }
     // If contain other resources than energy, drop them to storage
