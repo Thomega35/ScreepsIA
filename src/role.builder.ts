@@ -48,6 +48,8 @@ export const roleBuilder = {
       const constructionSite = roleBuilder.getConstructionSite(creep);
       if (!constructionSite) {
         creep.say("😭 No work : going kamikaze mode 💥");
+        // Log before suiciding
+         // console.log(`Builder ${creep.name} is suiciding at ${creep.pos} due to no construction sites available.`); // LOG REMOVED
         creep.suicide();
       }
       if (constructionSite && creep.build(constructionSite) == ERR_NOT_IN_RANGE) {
