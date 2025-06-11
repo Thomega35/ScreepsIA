@@ -21,18 +21,49 @@ export const roleGrabber = {
     if (!roomObject) {
       return;
     }
+
     // Withdraw from the tombstone or ruin
     if (roomObject instanceof Tombstone || roomObject instanceof Ruin) {
-      let storedResources = _.filter(
+      // Determine the first available resource type in the store
+      const storedResources = _.filter(
         Object.keys(roomObject.store) as ResourceConstant[],
-        // This assertion is unnecessary but TypeScript is not smart enough to understand it
-        resource => (roomObject).store[resource] > 0
+        resource => (roomObject.store as Store<ResourceConstant, false>)[resource] > 0 // Type assertion for store
       );
-      if (creep.withdraw(roomObject, storedResources[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(roomObject);
+
+      if (storedResources.length > 0) {
+        const resourceToWithdraw = storedResources[0];
+        const amountAvailable = (roomObject.store as Store<ResourceConstant, false>)[resourceToWithdraw]; // Type assertion for store
+
+        const withdrawResult = creep.withdraw(roomObject, resourceToWithdraw);
+
+        if (withdrawResult === OK) {
+          if (resourceToWithdraw === RESOURCE_ENERGY && amountAvailable > 0) {
+            // console.log(`Grabber ${creep.name} picked up ${amountAvailable} energy from ${roomObject.id}`); // LOG REMOVED
+          }
+          // Original behavior: creep withdraws whatever storedResources[0] is.
+          // Logging only happens if it's energy.
+        } else if (withdrawResult === ERR_NOT_IN_RANGE) {
+          creep.moveTo(roomObject, { visualizePathStyle: { stroke: "#ffaa00" } });
+        }
       }
-    } else if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
-      creep.moveTo(roomObject);
+    }
+    // Pickup from dropped resources
+    else if (roomObject instanceof Resource) {
+      const resourceToPickup = roomObject.resourceType;
+      const amountAvailable = roomObject.amount;
+
+      const pickupResult = creep.pickup(roomObject);
+
+      if (pickupResult === OK) {
+        if (resourceToPickup === RESOURCE_ENERGY && amountAvailable > 0) {
+          // Use roomObject.id for dropped resources as they have IDs. pos is a fallback.
+           // console.log(`Grabber ${creep.name} picked up ${amountAvailable} energy from ${roomObject.id}`); // LOG REMOVED
+        }
+        // Original behavior: creep picks up any resource type.
+        // Logging only happens if it's energy.
+      } else if (pickupResult === ERR_NOT_IN_RANGE) {
+        creep.moveTo(roomObject, { visualizePathStyle: { stroke: "#ffaa00" } });
+      }
     }
   },
   emptyMinerals: function (creep: Creep): boolean {
@@ -84,8 +115,13 @@ export const roleGrabber = {
       return;
     }
 
-    if (creep.transfer(emptyingStructure, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+    const amountToTransfer = creep.store[RESOURCE_ENERGY];
+    const transferResult = creep.transfer(emptyingStructure, RESOURCE_ENERGY);
+    if (transferResult == ERR_NOT_IN_RANGE) {
       creep.moveTo(emptyingStructure, { visualizePathStyle: { stroke: "#ffffff" } });
+    } else if (transferResult == OK && amountToTransfer > 0) {
+      // Log only if energy was transferred
+       // console.log(`Grabber ${creep.name} transferred ${amountToTransfer} energy to ${emptyingStructure.id} (${emptyingStructure.structureType})`); // LOG REMOVED
     }
   }
 };

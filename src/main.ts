@@ -101,6 +101,14 @@ export const loop = ErrorMapper.wrapLoop(() => {
     }
   }
 
+  // Log energy levels for each room
+  if (Game.time % 100 === 0) {
+    for (const roomName in Game.rooms) {
+      const room = Game.rooms[roomName];
+      console.log(`Room ${room.name} Energy: ${room.energyAvailable}/${room.energyCapacityAvailable}`);
+    }
+  }
+
   updateCreeps();
 
   SystemScript.updateTower();
