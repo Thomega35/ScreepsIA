@@ -8,6 +8,20 @@ const around: number[][] = [
   [1, 0]
 ];
 
+const REPAIR_CACHE_TTL = 5;
+// Heap-only cache, lost on global reset (fine, it is rebuilt next tick)
+const towerRepairCache = new Map<Id<StructureTower>, { targetId: Id<Structure>; tick: number }>();
+
+function needsTowerRepair(structure: Structure): boolean {
+  return (
+    structure.hits < structure.hitsMax &&
+    structure.structureType != STRUCTURE_WALL &&
+    ((structure.structureType === STRUCTURE_RAMPART && structure.hits < 30000) ||
+      (structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax / 3) ||
+      (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_ROAD))
+  );
+}
+
 export const SystemScript = {
   generatePixel: function () {
     let pix = "";
@@ -125,16 +139,16 @@ export const SystemScript = {
           tower.attack(closestHostile);
         }
         //REPAIR
-        const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-          filter: structure =>
-            structure.hits < structure.hitsMax &&
-            structure.structureType != STRUCTURE_WALL &&
-            ((structure.structureType === STRUCTURE_RAMPART && structure.hits < 30000) ||
-              (structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax / 3) ||
-              (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_ROAD))
-        });
-        if (closestDamagedStructure) {
-          tower.repair(closestDamagedStructure);
+        const cached = towerRepairCache.get(tower.id as Id<StructureTower>);
+        let target = cached && Game.time - cached.tick < REPAIR_CACHE_TTL ? Game.getObjectById(cached.targetId) : null;
+        if (!target || !needsTowerRepair(target)) {
+          target = tower.pos.findClosestByRange(FIND_STRUCTURES, { filter: needsTowerRepair });
+          if (target) {
+            towerRepairCache.set(tower.id as Id<StructureTower>, { targetId: target.id, tick: Game.time });
+          }
+        }
+        if (target) {
+          tower.repair(target);
         }
       }
     }
