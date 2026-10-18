@@ -25,10 +25,9 @@ declare global {
 
   interface CreepMemory {
     role: string;
-    room: Room;
     working: boolean;
-    spawn: StructureSpawn;
-    source?: Source;
+    spawnId: Id<StructureSpawn>;
+    sourceId?: Id<Source>;
   }
 
   interface SpawnMemory {

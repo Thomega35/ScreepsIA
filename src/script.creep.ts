@@ -12,7 +12,7 @@ export const CreepScript = {
     const energyAvailable = spawn.room.energyAvailable;
     const bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     spawn.spawnCreep(bodyParts, `${saticName}☄${Game.time}`, {
-      memory: { room: spawn.room, role: "harvester", working: false, spawn: spawn }
+      memory: { role: "harvester", working: false, spawnId: spawn.id }
     });
   },
 
@@ -25,11 +25,10 @@ export const CreepScript = {
     const bodyParts = repeatBody([WORK, WORK, MOVE], Math.floor(energyAvailable / 250));
     spawn.spawnCreep(bodyParts, `${saticName}⛏${Game.time}`, {
       memory: {
-        room: spawn.room,
         role: "miner",
         working: false,
-        source: sources[spawn.memory.nextMinerSpawnSource],
-        spawn: spawn
+        sourceId: sources[spawn.memory.nextMinerSpawnSource].id,
+        spawnId: spawn.id
       }
     });
   },
@@ -42,7 +41,7 @@ export const CreepScript = {
       bodyParts = repeatBody([CARRY, CARRY, MOVE], Math.floor((energyAvailable - 250) / 150));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🤲${Game.time}`, {
-      memory: { room: spawn.room, role: "grabber", working: false, spawn: spawn }
+      memory: { role: "grabber", working: false, spawnId: spawn.id }
     });
   },
   spawnUpgrader: function (spawn: StructureSpawn, saticName: string) {
@@ -54,7 +53,7 @@ export const CreepScript = {
       bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
-      memory: { room: spawn.room, role: "upgrader", working: false, spawn: spawn }
+      memory: { role: "upgrader", working: false, spawnId: spawn.id }
     });
   },
 
@@ -67,7 +66,7 @@ export const CreepScript = {
       bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🏗${Game.time}`, {
-      memory: { room: spawn.room, role: "builder", working: false, spawn: spawn }
+      memory: { role: "builder", working: false, spawnId: spawn.id }
     });
   },
   spawnCreeps: function (spawn: StructureSpawn, saticName: string) {
@@ -79,7 +78,7 @@ export const CreepScript = {
     const energyAvailable = spawn.room.energyAvailable;
     const energyCapacity = spawn.room.energyCapacityAvailable;
     const creepsByRole = _.groupBy(
-      Object.values(Game.creeps).filter(creep => creep.memory.spawn?.id === spawn.id),
+      Object.values(Game.creeps).filter(creep => creep.memory.spawnId === spawn.id),
       creep => creep.memory.role
     );
     SystemScript.printInfo(creepsByRole);
@@ -129,7 +128,7 @@ export const CreepScript = {
       creep.memory.working = true;
       return;
     }
-    const spawn = Game.getObjectById(creep.memory.spawn?.id);
+    const spawn = Game.getObjectById(creep.memory.spawnId);
     const WaitPosition = spawn
       ? new RoomPosition(spawn.pos.x - 10, spawn.pos.y + 10, spawn.pos.roomName)
       : new RoomPosition(10, 10, creep.room.name);

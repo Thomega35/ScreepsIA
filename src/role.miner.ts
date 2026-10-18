@@ -1,10 +1,10 @@
 // Miner only creep (need grabber to gather energy)
 export const roleMiner = {
     run: function(creep: Creep) {
-        if (!creep.memory.source) {
+        if (!creep.memory.sourceId) {
             return;
         }
-        const source = Game.getObjectById(creep.memory.source.id);
+        const source = Game.getObjectById(creep.memory.sourceId);
         if (!source || creep.memory.role !== "miner") {
             return;
         }
