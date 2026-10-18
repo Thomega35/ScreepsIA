@@ -1,13 +1,16 @@
 import { SystemScript } from "script.system";
 import _ from "lodash";
 
+function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstant[] {
+  const n = Math.min(count, Math.floor(MAX_CREEP_SIZE / pattern.length));
+  return SystemScript.flat(Array(n).fill(pattern)) as BodyPartConstant[];
+}
+
 // Scripts related with creeps
 export const CreepScript = {
   spawnHarvester: function (spawn: StructureSpawn, saticName: string) {
     const energyAvailable = spawn.room.energyAvailable;
-    const bodyParts = SystemScript.flat(
-      Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
-    ) as BodyPartConstant[];
+    const bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     spawn.spawnCreep(bodyParts, `${saticName}☄${Game.time}`, {
       memory: { room: spawn.room, role: "harvester", working: false, spawn: spawn }
     });
@@ -19,10 +22,7 @@ export const CreepScript = {
       spawn.memory.nextMinerSpawnSource !== undefined && spawn.memory.nextMinerSpawnSource !== null
         ? (spawn.memory.nextMinerSpawnSource + 1) % sources.length
         : 0;
-    let bodyParts: BodyPartConstant[];
-    bodyParts = SystemScript.flat(
-      Array(Math.floor(energyAvailable / 250)).fill([WORK, WORK, MOVE]) as string[]
-    ) as BodyPartConstant[];
+    const bodyParts = repeatBody([WORK, WORK, MOVE], Math.floor(energyAvailable / 250));
     spawn.spawnCreep(bodyParts, `${saticName}⛏${Game.time}`, {
       memory: {
         room: spawn.room,
@@ -37,13 +37,9 @@ export const CreepScript = {
     const energyAvailable = spawn.room.energyAvailable;
     let bodyParts: BodyPartConstant[];
     if (energyAvailable < 1800) {
-      bodyParts = SystemScript.flat(
-        Array(Math.floor(energyAvailable / 100)).fill([CARRY, MOVE]) as string[]
-      ) as BodyPartConstant[];
+      bodyParts = repeatBody([CARRY, MOVE], Math.floor(energyAvailable / 100));
     } else {
-      bodyParts = SystemScript.flat(
-        Array(Math.floor((energyAvailable - 250) / 150)).fill([CARRY, CARRY, MOVE]) as string[]
-      );
+      bodyParts = repeatBody([CARRY, CARRY, MOVE], Math.floor((energyAvailable - 250) / 150));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🤲${Game.time}`, {
       memory: { room: spawn.room, role: "grabber", working: false, spawn: spawn }
@@ -53,11 +49,9 @@ export const CreepScript = {
     const energyAvailable = spawn.room.energyAvailable;
     let bodyParts: BodyPartConstant[];
     if (energyAvailable < 1800) {
-      bodyParts = SystemScript.flat(
-        Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
-      ) as BodyPartConstant[];
+      bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     } else {
-      bodyParts = SystemScript.flat(Array(Math.floor((energyAvailable - 50) / 200)).fill([WORK, CARRY, MOVE]));
+      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
       memory: { room: spawn.room, role: "upgrader", working: false, spawn: spawn }
@@ -68,11 +62,9 @@ export const CreepScript = {
     const energyAvailable = spawn.room.energyAvailable;
     let bodyParts: BodyPartConstant[];
     if (energyAvailable < 1800) {
-      bodyParts = SystemScript.flat(
-        Array(Math.floor(energyAvailable / 250)).fill([WORK, CARRY, MOVE, MOVE]) as string[]
-      ) as BodyPartConstant[];
+      bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     } else {
-      bodyParts = SystemScript.flat(Array(Math.floor((energyAvailable - 50) / 200)).fill([WORK, CARRY, MOVE]));
+      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🏗${Game.time}`, {
       memory: { room: spawn.room, role: "builder", working: false, spawn: spawn }
