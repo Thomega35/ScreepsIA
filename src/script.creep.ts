@@ -22,7 +22,12 @@ export const CreepScript = {
       spawn.memory.nextMinerSpawnSource !== undefined && spawn.memory.nextMinerSpawnSource !== null
         ? (spawn.memory.nextMinerSpawnSource + 1) % sources.length
         : 0;
-    const bodyParts = repeatBody([WORK, WORK, MOVE], Math.floor(energyAvailable / 250));
+    // One CARRY lets miners feed source links (built from RCL 5)
+    const withCarry = (spawn.room.controller?.level ?? 0) >= 5;
+    const bodyParts: BodyPartConstant[] = [
+      ...(withCarry ? [CARRY] : []),
+      ...repeatBody([WORK, WORK, MOVE], Math.floor((energyAvailable - (withCarry ? 50 : 0)) / 250))
+    ];
     spawn.spawnCreep(bodyParts, `${saticName}⛏${Game.time}`, {
       memory: {
         role: "miner",
@@ -197,6 +202,14 @@ export const CreepScript = {
           return structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 250;
         }
       });
+    }
+
+    // Hub link forwards energy to the controller link
+    if (!emptyingStructure) {
+      const { hub, controller } = SystemScript.getLinks(creep.room);
+      if (hub && controller && hub.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        emptyingStructure = hub;
+      }
     }
 
     // If no tower is found, try to find the closest storage

@@ -79,30 +79,15 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
     if (Game.time % 100 === 0) {
       console.log("🔨Building cycle");
-      // Base building
-      BuildScript.buildExtensions(spawn);
-
-      BuildScript.buildTowers(spawn);
-
-      BuildScript.buildStorage(spawn);
-
-      // Road building
-      BuildScript.buildExtensionsRoads(spawn);
-
-      BuildScript.buildTowerRoads(spawn);
-
-      BuildScript.buildStorageRoads(spawn);
-
-      // Road room
-      BuildScript.buildUpgradeRoads(spawn);
-
-      BuildScript.buildMinerRoads(spawn);
+      BuildScript.run(spawn);
     }
   }
 
   updateCreeps();
 
   SystemScript.updateTower();
+
+  SystemScript.updateLinks();
 
   SystemScript.generatePixel();
 });
