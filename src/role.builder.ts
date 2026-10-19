@@ -12,7 +12,7 @@ const CONSTRUCTION_PRIORITY: BuildableStructureConstant[] = [
 
 // Simple builder creep
 export const roleBuilder = {
-  getConstructionSite: function (creep: Creep) {
+  getConstructionSite(creep: Creep) {
     for (const structureType of CONSTRUCTION_PRIORITY) {
       const site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
         filter: s => s.structureType === structureType
@@ -23,18 +23,18 @@ export const roleBuilder = {
     }
     return creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
   },
-  run: function (creep: Creep) {
+  run(creep: Creep) {
     if (creep.memory.working === undefined || creep.memory.working === null) {
       creep.memory.working = false;
     }
 
     // Go to energy gathering mode if creep is empty
-    if (creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
+    if (creep.memory.working && creep.store[RESOURCE_ENERGY] === 0) {
       creep.memory.working = false;
     }
 
     // Go to building mode if creep is full
-    if (!creep.memory.working && creep.store.getFreeCapacity() == 0) {
+    if (!creep.memory.working && creep.store.getFreeCapacity() === 0) {
       creep.memory.working = true;
     }
 
@@ -42,11 +42,11 @@ export const roleBuilder = {
     if (creep.memory.working) {
       const constructionSite = roleBuilder.getConstructionSite(creep);
       if (constructionSite) {
-        if (creep.build(constructionSite) == ERR_NOT_IN_RANGE) {
+        if (creep.build(constructionSite) === ERR_NOT_IN_RANGE) {
           creep.moveTo(constructionSite, { visualizePathStyle: { stroke: "#ffffff" } });
         }
       } else if (creep.room.controller) {
-        if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+        if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
           creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: "#ffffff" } });
         }
       }

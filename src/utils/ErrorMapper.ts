@@ -1,17 +1,18 @@
-import { SourceMapConsumer } from "source-map";
+import { type RawSourceMap, SourceMapConsumer } from "source-map";
 import _ from "lodash";
 
 export class ErrorMapper {
   // Cache consumer
-  private static _consumer?: SourceMapConsumer;
+  private static consumerCache?: SourceMapConsumer;
 
   public static async getConsumer(): Promise<SourceMapConsumer> {
-    if (this._consumer == null) {
-      const rawSourceMap = require("main.js.map");
-      this._consumer = await new SourceMapConsumer(rawSourceMap);
+    if (this.consumerCache == null) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const rawSourceMap = require("main.js.map") as RawSourceMap;
+      this.consumerCache = await new SourceMapConsumer(rawSourceMap);
     }
 
-    return this._consumer;
+    return this.consumerCache;
   }
 
   // Cache previously mapped traces to improve performance
@@ -49,12 +50,12 @@ export class ErrorMapper {
           if (pos.name) {
             outStack += `\n    at ${pos.name} (${pos.source}:${pos.line}:${pos.column})`;
           } else if (match[1]) {
-              // no original source file name known - use file name from given trace
-              outStack += `\n    at ${match[1]} (${pos.source}:${pos.line}:${pos.column})`;
-            } else {
-              // no original source file name known or in given trace - omit name
-              outStack += `\n    at ${pos.source}:${pos.line}:${pos.column}`;
-            }
+            // no original source file name known - use file name from given trace
+            outStack += `\n    at ${match[1]} (${pos.source}:${pos.line}:${pos.column})`;
+          } else {
+            // no original source file name known or in given trace - omit name
+            outStack += `\n    at ${pos.source}:${pos.line}:${pos.column}`;
+          }
         } else {
           // no known position
           break;
@@ -79,9 +80,11 @@ export class ErrorMapper {
             const message = `Source maps don't work in the simulator - displaying original error`;
             console.log(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
           } else {
-            this.sourceMappedStackTrace(e).then(stackTrace => {
-              console.log(`<span style='color:red'>${_.escape(stackTrace)}</span>`);
-            });
+            this.sourceMappedStackTrace(e)
+              .then(stackTrace => {
+                console.log(`<span style='color:red'>${_.escape(stackTrace)}</span>`);
+              })
+              .catch(error => console.log(error));
           }
         } else {
           throw e;

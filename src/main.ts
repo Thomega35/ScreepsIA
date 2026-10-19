@@ -1,12 +1,12 @@
-import { ErrorMapper } from "utils/ErrorMapper";
-import { roleHarvester } from "role.harvester";
-import { roleUpgrader } from "role.upgrader";
-import { roleMiner } from "role.miner";
-import { roleGrabber } from "role.grabber";
-import { roleBuilder } from "role.builder";
-import { SystemScript } from "script.system";
-import { CreepScript } from "script.creep";
 import { BuildScript } from "script.build";
+import { CreepScript } from "script.creep";
+import { ErrorMapper } from "utils/ErrorMapper";
+import { SystemScript } from "script.system";
+import { roleBuilder } from "role.builder";
+import { roleGrabber } from "role.grabber";
+import { roleHarvester } from "role.harvester";
+import { roleMiner } from "role.miner";
+import { roleUpgrader } from "role.upgrader";
 
 declare global {
   /*
@@ -33,14 +33,6 @@ declare global {
   interface SpawnMemory {
     nextMinerSpawnSource: number;
   }
-
-  // Syntax for adding proprties to `global` (ex "global.log")
-  namespace NodeJS {
-    interface Global {
-      log: any;
-      [key: string]: any; // Add index signature
-    }
-  }
 }
 
 function updateCreeps() {
@@ -65,7 +57,7 @@ function updateCreeps() {
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
   console.log(`Current game tick is ${Game.time} ------------------------`);
-  const satic_name = "ESCALATOR";
+  const staticName = "ESCALATOR";
 
   SystemScript.cleanMemory();
 
@@ -75,7 +67,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
     const spawn = Game.spawns[spawnName];
     console.log("Spawn: " + spawn.name);
 
-    CreepScript.spawnCreeps(spawn, satic_name);
+    CreepScript.spawnCreeps(spawn, staticName);
 
     if (Game.time % 100 === 0) {
       console.log("🔨Building cycle");

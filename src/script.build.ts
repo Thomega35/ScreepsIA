@@ -10,7 +10,10 @@ const EXTENSION_SEARCH_RANGE = 12;
 const EXTENSION_SLOT_ROAD_COST = 20;
 const ROADS_MIN_LEVEL = 3;
 
-type Tile = { x: number; y: number };
+interface Tile {
+  x: number;
+  y: number;
+}
 
 interface RoadPlan {
   tiles: number[];
@@ -88,7 +91,7 @@ function planExtensionSlots(spawn: StructureSpawn, occupied: Set<number>): Tile[
   const slots: (Tile & { range: number; dist: number })[] = [];
   for (let dx = -EXTENSION_SEARCH_RANGE; dx <= EXTENSION_SEARCH_RANGE; dx++) {
     for (let dy = -EXTENSION_SEARCH_RANGE; dy <= EXTENSION_SEARCH_RANGE; dy++) {
-      if ((dx + dy) & 1 || (dx === 0 && dy === 0)) {
+      if ((dx + dy) % 2 !== 0 || (dx === 0 && dy === 0)) {
         continue;
       }
       const x = spawn.pos.x + dx;
@@ -202,7 +205,7 @@ function planRoads(spawn: StructureSpawn, extensionSlots: Tile[]): RoadPlan {
 }
 
 export const BuildScript = {
-  run: function (spawn: StructureSpawn) {
+  run(spawn: StructureSpawn) {
     const level = spawn.room.controller?.level ?? 0;
     const occupied = getOccupiedTiles(spawn.room);
     const extensionSlots = planExtensionSlots(spawn, occupied);
@@ -218,7 +221,7 @@ export const BuildScript = {
     BuildScript.buildLinks(spawn, roadPlan, occupied);
     BuildScript.buildRoads(spawn.room, roadPlan);
   },
-  buildExtensions: function (spawn: StructureSpawn, slots: Tile[], occupied: Set<number>) {
+  buildExtensions(spawn: StructureSpawn, slots: Tile[], occupied: Set<number>) {
     const level = spawn.room.controller?.level ?? 0;
     let missing = (CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][level] ?? 0) - SystemScript.countExtensions(spawn);
 
@@ -236,7 +239,7 @@ export const BuildScript = {
     }
   },
   // Priority: storage hub, controller, then sources (farthest first)
-  buildLinks: function (spawn: StructureSpawn, plan: RoadPlan, occupied: Set<number>) {
+  buildLinks(spawn: StructureSpawn, plan: RoadPlan, occupied: Set<number>) {
     const room = spawn.room;
     const level = room.controller?.level ?? 0;
     const links = findMine(room, STRUCTURE_LINK);
@@ -294,7 +297,7 @@ export const BuildScript = {
     }
   },
   // Places road sites in plan order within budget, and drops untouched sites outside the plan
-  buildRoads: function (room: Room, plan: RoadPlan) {
+  buildRoads(room: Room, plan: RoadPlan) {
     const roads = new Set<number>();
     const blocked = new Set<number>();
     for (const structure of room.find(FIND_STRUCTURES)) {
@@ -347,7 +350,7 @@ export const BuildScript = {
       }
     }
   },
-  buildStorage: function (spawn: StructureSpawn) {
+  buildStorage(spawn: StructureSpawn) {
     if (!spawn.room.controller || spawn.room.controller.level < 4) {
       return;
     }
@@ -356,7 +359,7 @@ export const BuildScript = {
       SystemScript.createStructure(spawn, -4, 5, -10, 10, STRUCTURE_STORAGE);
     }
   },
-  buildTowers: function (spawn: StructureSpawn) {
+  buildTowers(spawn: StructureSpawn) {
     const nbTowers = SystemScript.countTowers(spawn);
     if (!spawn.room.controller || spawn.room.controller.level < 3) {
       return;

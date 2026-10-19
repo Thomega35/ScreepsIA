@@ -29,37 +29,35 @@ function findLinkSpot(creep: Creep, source: Source, link: StructureLink): RoomPo
 
 // Miner only creep (need grabber to gather energy, or a source link)
 export const roleMiner = {
-    run: function(creep: Creep) {
-        if (!creep.memory.sourceId) {
-            return;
-        }
-        const source = Game.getObjectById(creep.memory.sourceId);
-        if (!source || creep.memory.role !== "miner") {
-            return;
-        }
-        const link =
-            creep.getActiveBodyparts(CARRY) > 0
-                ? SystemScript.getLinks(creep.room).sources.find(l => l.pos.inRangeTo(source, 2))
-                : undefined;
-        if (link) {
-            if (!creep.pos.isNearTo(source) || !creep.pos.isNearTo(link)) {
-                creep.moveTo(findLinkSpot(creep, source, link) ?? source, {visualizePathStyle: {stroke: '#ffaa00'}});
-            }
-            creep.harvest(source);
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-                if (link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-                    creep.transfer(link, RESOURCE_ENERGY);
-                } else {
-                    creep.drop(RESOURCE_ENERGY);
-                }
-            }
-            return;
-        }
-        //mine ressource if in range or move to it
-        if(creep.harvest(source) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
-        }
-        //drop all ressources
-        creep.drop(RESOURCE_ENERGY);
+  run(creep: Creep) {
+    if (!creep.memory.sourceId) {
+      return;
     }
+    const source = Game.getObjectById(creep.memory.sourceId);
+    if (!source || creep.memory.role !== "miner") {
+      return;
+    }
+    const link =
+      creep.getActiveBodyparts(CARRY) > 0
+        ? SystemScript.getLinks(creep.room).sources.find(l => l.pos.inRangeTo(source, 2))
+        : undefined;
+    if (link) {
+      if (!creep.pos.isNearTo(source) || !creep.pos.isNearTo(link)) {
+        creep.moveTo(findLinkSpot(creep, source, link) ?? source, { visualizePathStyle: { stroke: "#ffaa00" } });
+      }
+      creep.harvest(source);
+      if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        if (link.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+          creep.transfer(link, RESOURCE_ENERGY);
+        }
+      }
+      return;
+    }
+    // mine ressource if in range or move to it
+    if (creep.harvest(source) === ERR_NOT_IN_RANGE) {
+      creep.moveTo(source, { visualizePathStyle: { stroke: "#ffaa00" } });
+    }
+    // drop all ressources
+    creep.drop(RESOURCE_ENERGY);
+  }
 };

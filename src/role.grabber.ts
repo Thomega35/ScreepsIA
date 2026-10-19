@@ -3,7 +3,7 @@ import _ from "lodash";
 
 // Complex energy grabber creep (need miner to work)
 export const roleGrabber = {
-  pickup: function (creep: Creep) {
+  pickup(creep: Creep) {
     let roomObject: Tombstone | Ruin | Resource | null = null;
     roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
       filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
@@ -23,20 +23,23 @@ export const roleGrabber = {
     }
     // Withdraw from the tombstone or ruin
     if (roomObject instanceof Tombstone || roomObject instanceof Ruin) {
-      let storedResources = _.filter(
+      const storedResources = _.filter(
         Object.keys(roomObject.store) as ResourceConstant[],
         // This assertion is unnecessary but TypeScript is not smart enough to understand it
-        resource => (roomObject).store[resource] > 0
+        resource => roomObject.store[resource] > 0
       );
-      if (creep.withdraw(roomObject, storedResources[0]) == ERR_NOT_IN_RANGE) {
+      if (creep.withdraw(roomObject, storedResources[0]) === ERR_NOT_IN_RANGE) {
         creep.moveTo(roomObject);
       }
-    } else if (creep.pickup(roomObject) == ERR_NOT_IN_RANGE) {
+    } else if (creep.pickup(roomObject) === ERR_NOT_IN_RANGE) {
       creep.moveTo(roomObject);
     }
   },
-  emptyMinerals: function (creep: Creep): boolean {
-    let storedResources = _.filter(Object.keys(creep.store), resource => creep.store[resource as ResourceConstant] > 0);
+  emptyMinerals(creep: Creep): boolean {
+    const storedResources = _.filter(
+      Object.keys(creep.store),
+      resource => creep.store[resource as ResourceConstant] > 0
+    );
     if (storedResources.length > 1) {
       const storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: structure => {
@@ -45,14 +48,14 @@ export const roleGrabber = {
       });
       if (!storage) {
         creep.drop(storedResources[0] as ResourceConstant);
-      } else if (creep.transfer(storage, storedResources[1] as ResourceConstant) == ERR_NOT_IN_RANGE) {
+      } else if (creep.transfer(storage, storedResources[1] as ResourceConstant) === ERR_NOT_IN_RANGE) {
         creep.moveTo(storage);
       }
       return true;
     }
     return false;
   },
-  updateWorking: function (creep: Creep) {
+  updateWorking(creep: Creep) {
     if (creep.memory.role !== "grabber") {
       return;
     }
@@ -66,7 +69,7 @@ export const roleGrabber = {
       creep.memory.working = true;
     }
   },
-  run: function (creep: Creep) {
+  run(creep: Creep) {
     roleGrabber.updateWorking(creep);
     // Energy gathering mode
     if (!creep.memory.working) {
@@ -84,7 +87,7 @@ export const roleGrabber = {
       return;
     }
 
-    if (creep.transfer(emptyingStructure, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+    if (creep.transfer(emptyingStructure, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
       creep.moveTo(emptyingStructure, { visualizePathStyle: { stroke: "#ffffff" } });
     }
   }

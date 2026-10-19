@@ -3,6 +3,7 @@ import _ from "lodash";
 // Scripts annex
 const REPAIR_CACHE_TTL = 5;
 const LINK_SEND_THRESHOLD = 400;
+let lastPixelStatus = "";
 
 export interface RoomLinks {
   hub?: StructureLink;
@@ -16,7 +17,7 @@ const towerRepairCache = new Map<Id<StructureTower>, { targetId: Id<Structure>; 
 function needsTowerRepair(structure: Structure): boolean {
   return (
     structure.hits < structure.hitsMax &&
-    structure.structureType != STRUCTURE_WALL &&
+    structure.structureType !== STRUCTURE_WALL &&
     ((structure.structureType === STRUCTURE_RAMPART && structure.hits < 30000) ||
       (structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax / 3) ||
       (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_ROAD))
@@ -24,17 +25,17 @@ function needsTowerRepair(structure: Structure): boolean {
 }
 
 export const SystemScript = {
-  generatePixel: function () {
-    let pix = "";
-    if (pix != "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%") {
-      pix = "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%";
-      console.log(pix);
+  generatePixel() {
+    const pixelStatus = "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%";
+    if (pixelStatus !== lastPixelStatus) {
+      lastPixelStatus = pixelStatus;
+      console.log(pixelStatus);
     }
-    if (Game.cpu.bucket == 10000) {
+    if (Game.cpu.bucket === 10000) {
       Game.cpu.generatePixel();
     }
   },
-  printInfo: function (creepsByRole: { [role: string]: Creep[] }) {
+  printInfo(creepsByRole: { [role: string]: Creep[] }) {
     for (const role in creepsByRole) {
       let minerinfo = "";
       if (role === "miner") {
@@ -46,7 +47,7 @@ export const SystemScript = {
       console.log(`Role ${role}: ${creepsByRole[role].length} creeps ` + minerinfo);
     }
   },
-  cleanMemory: function () {
+  cleanMemory() {
     // Automatically delete memory of missing creeps
     for (const name in Memory.creeps) {
       if (!(name in Game.creeps)) {
@@ -54,7 +55,7 @@ export const SystemScript = {
       }
     }
   },
-  countExtensions: function (spawn: StructureSpawn): number {
+  countExtensions(spawn: StructureSpawn): number {
     return (
       spawn.room.find(FIND_MY_STRUCTURES, {
         filter: { structureType: STRUCTURE_EXTENSION }
@@ -64,7 +65,7 @@ export const SystemScript = {
       }).length
     );
   },
-  countStorage: function (spawn: StructureSpawn): number {
+  countStorage(spawn: StructureSpawn): number {
     return (
       spawn.room.find(FIND_MY_STRUCTURES, {
         filter: { structureType: STRUCTURE_STORAGE }
@@ -74,7 +75,7 @@ export const SystemScript = {
       }).length
     );
   },
-  countTowers: function (spawn: StructureSpawn): number {
+  countTowers(spawn: StructureSpawn): number {
     return (
       spawn.room.find(FIND_MY_STRUCTURES, {
         filter: { structureType: STRUCTURE_TOWER }
@@ -84,7 +85,7 @@ export const SystemScript = {
       }).length
     );
   },
-  createStructure: function (
+  createStructure(
     spawn: StructureSpawn,
     startX: number,
     startY: number,
@@ -111,7 +112,7 @@ export const SystemScript = {
     }
   },
   // Hub = next to storage, controller = feeds upgraders, sources = filled by miners
-  getLinks: function (room: Room): RoomLinks {
+  getLinks(room: Room): RoomLinks {
     const cached = linksCache.get(room.name);
     if (cached && cached.tick === Game.time) {
       return cached.links;
@@ -132,7 +133,7 @@ export const SystemScript = {
     linksCache.set(room.name, { tick: Game.time, links });
     return links;
   },
-  updateLinks: function () {
+  updateLinks() {
     for (const roomName in Game.rooms) {
       const room = Game.rooms[roomName];
       if (!room.controller?.my) {
@@ -166,19 +167,16 @@ export const SystemScript = {
       }
     }
   },
-  flat: function (arr: any[]) {
-    return arr.reduce((acc, val) => acc.concat(val), []);
-  },
-  updateTower: function () {
-    for (let room in Game.rooms) {
+  updateTower() {
+    for (const room in Game.rooms) {
       const towers = Game.rooms[room].find(FIND_STRUCTURES, {
-        filter: function (object) {
+        filter(object) {
           return object.structureType === STRUCTURE_TOWER;
         }
       });
-      //EACH TOWER
+      // EACH TOWER
       for (const tower of towers) {
-        //ATTACK
+        // ATTACK
         const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
           filter: creep => {
             return !creep.name.toLowerCase().includes("scala");
@@ -187,13 +185,13 @@ export const SystemScript = {
         if (closestHostile) {
           tower.attack(closestHostile);
         }
-        //REPAIR
-        const cached = towerRepairCache.get(tower.id as Id<StructureTower>);
+        // REPAIR
+        const cached = towerRepairCache.get(tower.id);
         let target = cached && Game.time - cached.tick < REPAIR_CACHE_TTL ? Game.getObjectById(cached.targetId) : null;
         if (!target || !needsTowerRepair(target)) {
           target = tower.pos.findClosestByRange(FIND_STRUCTURES, { filter: needsTowerRepair });
           if (target) {
-            towerRepairCache.set(tower.id as Id<StructureTower>, { targetId: target.id, tick: Game.time });
+            towerRepairCache.set(tower.id, { targetId: target.id, tick: Game.time });
           }
         }
         if (target) {
