@@ -12,6 +12,12 @@ export interface RoomLinks {
 const linksCache = new Map<string, { tick: number; links: RoomLinks }>();
 // Heap-only cache, lost on global reset (fine, it is rebuilt next tick)
 const towerRepairCache = new Map<Id<StructureTower>, { targetId: Id<Structure>; tick: number }>();
+const SAFE_MODE_GUARDED: string[] = [STRUCTURE_SPAWN, STRUCTURE_TOWER];
+
+// Name-based ally whitelist is intentional: spares creeps named "*scala*" (spoofable, accepted risk)
+function isAlly(creep: Creep): boolean {
+  return creep.name.toLowerCase().includes("scala");
+}
 
 function needsTowerRepair(structure: Structure): boolean {
   return (
@@ -176,6 +182,41 @@ export const SystemScript = {
       }
     }
   },
+  // Event log covers the previous tick: react to any non-ally hit on a spawn or tower
+  updateSafeMode() {
+    for (const room of Object.values(Game.rooms)) {
+      const controller = room.controller;
+      if (
+        !controller?.my ||
+        controller.safeMode ||
+        controller.safeModeCooldown ||
+        controller.upgradeBlocked ||
+        controller.safeModeAvailable === 0
+      ) {
+        continue;
+      }
+      const underAttack = room.getEventLog().some(entry => {
+        if (entry.event === EVENT_OBJECT_DESTROYED) {
+          return SAFE_MODE_GUARDED.includes(entry.data.type);
+        }
+        if (entry.event !== EVENT_ATTACK) {
+          return false;
+        }
+        const attacker = Game.getObjectById(entry.objectId as Id<Creep>);
+        if (attacker instanceof Creep && (attacker.my || isAlly(attacker))) {
+          return false;
+        }
+        const target = Game.getObjectById(entry.data.targetId as Id<Structure>);
+        return target !== null && SAFE_MODE_GUARDED.includes(target.structureType);
+      });
+      if (underAttack) {
+        const result = controller.activateSafeMode();
+        console.log(
+          `[${Game.time}] ${room.name} 🛡️ Spawn/tower attacked, safe mode: ${result === OK ? "activated" : result}`
+        );
+      }
+    }
+  },
   updateTower() {
     for (const room in Game.rooms) {
       const towers = Game.rooms[room].find(FIND_STRUCTURES, {
@@ -186,11 +227,8 @@ export const SystemScript = {
       // EACH TOWER
       for (const tower of towers) {
         // ATTACK
-        // Name-based ally whitelist is intentional: spares creeps named "*scala*" (spoofable, accepted risk)
         const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
-          filter: creep => {
-            return !creep.name.toLowerCase().includes("scala");
-          }
+          filter: creep => !isAlly(creep)
         });
         if (closestHostile) {
           tower.attack(closestHostile);

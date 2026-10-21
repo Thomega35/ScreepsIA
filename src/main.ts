@@ -66,6 +66,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   SystemScript.cleanMemory();
 
+  SystemScript.updateSafeMode();
+
   for (const spawnName in Game.spawns) {
     const spawn = Game.spawns[spawnName];
 
