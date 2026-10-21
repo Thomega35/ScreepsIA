@@ -1,6 +1,7 @@
 "use strict";
 
-import clear from "rollup-plugin-clear";
+import { existsSync, readdirSync, rmSync } from "fs";
+import { join } from "path";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import typescript from "rollup-plugin-typescript2";
@@ -9,6 +10,17 @@ import nodePolyfills from "rollup-plugin-node-polyfills";
 
 config();
 const build_path = process.env.BUILD_PATH || "dist";
+
+// Every .js file in the branch folder becomes a Screeps module, so drop stale ones before building
+const cleanBuildPath = {
+  name: "clean-build-path",
+  buildStart() {
+    if (!existsSync(build_path)) return;
+    for (const file of readdirSync(build_path)) {
+      if (file.endsWith(".js")) rmSync(join(build_path, file));
+    }
+  }
+};
 
 // Screeps can only require .js modules, so ship the sourcemap as main.js.map.js
 const screepsSourceMap = {
@@ -35,7 +47,7 @@ export default {
   },
 
   plugins: [
-    clear({ targets: [build_path + "/*"] }),
+    cleanBuildPath,
     resolve({
       rootDir: "src",
       preferBuiltins: true
