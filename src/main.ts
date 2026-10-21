@@ -8,6 +8,8 @@ import { roleHarvester } from "role.harvester";
 import { roleMiner } from "role.miner";
 import { roleUpgrader } from "role.upgrader";
 
+const REPORT_INTERVAL = 20;
+
 declare global {
   /*
     Example types, expand on these or remove them and add your own.
@@ -60,21 +62,16 @@ function updateCreeps() {
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
-  console.log(`Current game tick is ${Game.time} ------------------------`);
   const staticName = "ESCALATOR";
 
   SystemScript.cleanMemory();
 
-  // Group creeps by role
-
   for (const spawnName in Game.spawns) {
     const spawn = Game.spawns[spawnName];
-    console.log("Spawn: " + spawn.name);
 
     CreepScript.spawnCreeps(spawn, staticName);
 
     if (Game.time % 100 === 0) {
-      console.log("🔨Building cycle");
       BuildScript.run(spawn);
     }
   }
@@ -86,6 +83,10 @@ export const loop = ErrorMapper.wrapLoop(() => {
   SystemScript.updateLinks();
 
   SystemScript.generatePixel();
+
+  if (Game.time % REPORT_INTERVAL === 0) {
+    SystemScript.report();
+  }
 });
 
 loop();

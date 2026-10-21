@@ -3,7 +3,6 @@ import _ from "lodash";
 // Scripts annex
 const REPAIR_CACHE_TTL = 5;
 export const LINK_SEND_THRESHOLD = 400;
-let lastPixelStatus = "";
 
 export interface RoomLinks {
   hub?: StructureLink;
@@ -26,25 +25,35 @@ function needsTowerRepair(structure: Structure): boolean {
 
 export const SystemScript = {
   generatePixel() {
-    const pixelStatus = "Pix Loading : " + Math.trunc(Game.cpu.bucket / 100) + "%";
-    if (pixelStatus !== lastPixelStatus) {
-      lastPixelStatus = pixelStatus;
-      console.log(pixelStatus);
-    }
-    if (Game.cpu.bucket === 10000) {
-      Game.cpu.generatePixel();
+    if (Game.cpu.bucket === 10000 && Game.cpu.generatePixel() === OK) {
+      console.log(`[${Game.time}] 💎 Pixel generated`);
     }
   },
-  printInfo(creepsByRole: { [role: string]: Creep[] }) {
-    for (const role in creepsByRole) {
-      let minerinfo = "";
-      if (role === "miner") {
-        const minerBySource = _.groupBy(creepsByRole[role], creep => creep.memory.sourceId);
-        Object.keys(minerBySource).forEach((source, index) => {
-          minerinfo += `Source ${index}: ${minerBySource[source].length} miners `;
-        });
+  // One line per owned room
+  report() {
+    const creepsByRoom = _.groupBy(
+      Object.values(Game.creeps),
+      creep => Game.getObjectById(creep.memory.spawnId)?.room.name ?? creep.room.name
+    );
+    for (const room of Object.values(Game.rooms)) {
+      const controller = room.controller;
+      if (!controller?.my) {
+        continue;
       }
-      console.log(`Role ${role}: ${creepsByRole[role].length} creeps ` + minerinfo);
+      const roles = _.countBy(creepsByRoom[room.name] ?? [], creep => creep.memory.role);
+      const roleInfo = Object.keys(roles)
+        .sort()
+        .map(role => `${role}:${roles[role]}`)
+        .join(" ");
+      const progress =
+        controller.level < 8 ? ` ${((100 * controller.progress) / controller.progressTotal).toFixed(1)}%` : "";
+      const storage = room.storage
+        ? ` | storage ${Math.round(room.storage.store.getUsedCapacity(RESOURCE_ENERGY) / 1000)}k`
+        : "";
+      const sites = room.find(FIND_MY_CONSTRUCTION_SITES).length;
+      console.log(
+        `[${Game.time}] ${room.name} RCL${controller.level}${progress} | energy ${room.energyAvailable}/${room.energyCapacityAvailable}${storage} | constructions ${sites} | ${roleInfo}`
+      );
     }
   },
   cleanMemory() {
@@ -105,7 +114,7 @@ export const SystemScript = {
           .lookAt(x, y)
           .some(o => o.type === LOOK_STRUCTURES || o.type === LOOK_CONSTRUCTION_SITES || o.type === LOOK_SOURCES);
         if (!taken && spawn.room.createConstructionSite(x, y, structureType) === OK) {
-          console.log(`Creating ${structureType} at ${x}, ${y}`);
+          console.log(`[${Game.time}] ${spawn.room.name} 🔨 ${structureType} site at ${x},${y}`);
           return;
         }
       }

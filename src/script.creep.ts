@@ -122,7 +122,6 @@ export const CreepScript = {
       Object.values(Game.creeps).filter(creep => creep.memory.spawnId === spawn.id),
       creep => creep.memory.role
     );
-    SystemScript.printInfo(creepsByRole);
 
     const harvesters = creepsByRole.harvester || [];
     const miners = creepsByRole.miner || [];
