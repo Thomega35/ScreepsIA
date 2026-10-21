@@ -24,8 +24,43 @@ function bodyCost(body: BodyPartDefinition[]): number {
   return body.reduce((sum, part) => sum + BODYPART_COST[part.type], 0);
 }
 
-function isFullSize(creep: Creep, capacity: number): boolean {
-  return bodyCost(creep.body) >= Math.min(capacity, MAX_COST[creep.memory.role] ?? Infinity) * 0.9;
+const LINK_UPGRADER_CARRY = 4;
+
+function linkUpgraderCost(work: number): number {
+  return (
+    LINK_UPGRADER_CARRY * BODYPART_COST[CARRY] + work * BODYPART_COST[WORK] + Math.ceil(work / 4) * BODYPART_COST[MOVE]
+  );
+}
+
+// Link-fed upgraders stand still: max WORK, small CARRY buffer, 1 MOVE per 4 WORK
+function linkUpgraderBody(energy: number, maxWork: number): BodyPartConstant[] {
+  for (let work = maxWork; work > 0; work--) {
+    const move = Math.ceil(work / 4);
+    if (linkUpgraderCost(work) <= energy && LINK_UPGRADER_CARRY + work + move <= MAX_CREEP_SIZE) {
+      return [
+        ...Array<BodyPartConstant>(work).fill(WORK),
+        ...Array<BodyPartConstant>(LINK_UPGRADER_CARRY).fill(CARRY),
+        ...Array<BodyPartConstant>(move).fill(MOVE)
+      ];
+    }
+  }
+  return [];
+}
+
+// RCL 8 caps upgrading at 15 energy/tick, so bigger upgraders are wasted
+function maxUpgradeWork(room: Room): number {
+  return room.controller?.level === 8 ? CONTROLLER_MAX_UPGRADE_PER_TICK : MAX_CREEP_SIZE;
+}
+
+function roleMaxCost(role: string, room: Room): number {
+  if (role === "upgrader" && room.controller?.level === 8) {
+    return linkUpgraderCost(CONTROLLER_MAX_UPGRADE_PER_TICK);
+  }
+  return MAX_COST[role] ?? Infinity;
+}
+
+function isFullSize(creep: Creep, room: Room): boolean {
+  return bodyCost(creep.body) >= Math.min(room.energyCapacityAvailable, roleMaxCost(creep.memory.role, room)) * 0.9;
 }
 
 // Scripts related with creeps
@@ -84,12 +119,16 @@ export const CreepScript = {
     });
   },
   spawnUpgrader(spawn: StructureSpawn, saticName: string) {
-    const energyAvailable = spawn.room.energyAvailable;
-    let bodyParts: BodyPartConstant[];
-    if (energyAvailable < 1800) {
-      bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
-    } else {
-      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
+    const energyAvailable = Math.min(spawn.room.energyAvailable, roleMaxCost("upgrader", spawn.room));
+    let bodyParts: BodyPartConstant[] = [];
+    if (SystemScript.getLinks(spawn.room).controller) {
+      bodyParts = linkUpgraderBody(energyAvailable, maxUpgradeWork(spawn.room));
+    }
+    if (bodyParts.length === 0) {
+      bodyParts =
+        energyAvailable < 1800
+          ? repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250))
+          : repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
       memory: { role: "upgrader", working: false, spawnId: spawn.id }
@@ -143,7 +182,7 @@ export const CreepScript = {
     // Economy collapsed: nobody can refill extensions, so spawn with what we have
     const emergency = harvesters.length === 0 && (miners.length === 0 || grabbers.length === 0);
     const ready = (minCost: number, role: string) =>
-      energyAvailable >= minCost && (emergency || energyAvailable >= Math.min(capacity, MAX_COST[role]));
+      energyAvailable >= minCost && (emergency || energyAvailable >= Math.min(capacity, roleMaxCost(role, spawn.room)));
 
     const needsHarvester = (miners.length === 0 || grabbers.length === 0) && harvesters.length < 2;
     const needsMiner =
@@ -151,8 +190,9 @@ export const CreepScript = {
       ((contrlLvl <= 4 && miners.length < 3) || (contrlLvl >= 5 && miners.length < 2));
     const grabberLimit = contrlLvl <= 3 ? 3 : 2;
     // Emergency grabbers are tiny: allow one extra so a full-size one can replace it
-    const fullGrabbers = grabbers.filter(creep => isFullSize(creep, capacity)).length;
-    const needsGrabber = grabbers.length < grabberLimit || (fullGrabbers < grabberLimit && grabbers.length <= grabberLimit);
+    const fullGrabbers = grabbers.filter(creep => isFullSize(creep, spawn.room)).length;
+    const needsGrabber =
+      grabbers.length < grabberLimit || (fullGrabbers < grabberLimit && grabbers.length <= grabberLimit);
     const needsUpgrader =
       (contrlLvl === 1 && upgraders.length < 8) ||
       (contrlLvl <= 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
@@ -191,8 +231,15 @@ export const CreepScript = {
       // Only renew creeps at least as good as what we would spawn today
       // Pre-RCL5 miners lack CARRY and can't feed source links
       const outdatedMiner =
-        creep.memory.role === "miner" && (spawn.room.controller?.level ?? 0) >= 5 && creep.getActiveBodyparts(CARRY) === 0;
-      const worthIt = !outdatedMiner && isFullSize(creep, spawn.room.energyCapacityAvailable);
+        creep.memory.role === "miner" &&
+        (spawn.room.controller?.level ?? 0) >= 5 &&
+        creep.getActiveBodyparts(CARRY) === 0;
+      // Carry-heavy upgraders are replaced by WORK-heavy ones once the controller link exists
+      const outdatedUpgrader =
+        creep.memory.role === "upgrader" &&
+        SystemScript.getLinks(spawn.room).controller !== undefined &&
+        creep.getActiveBodyparts(CARRY) > LINK_UPGRADER_CARRY;
+      const worthIt = !outdatedMiner && !outdatedUpgrader && isFullSize(creep, spawn.room);
       if (ttl > RENEW_START_TTL || storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
         return false;
       }

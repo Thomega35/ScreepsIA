@@ -4,6 +4,24 @@ import { SystemScript } from "script.system";
 // Simple upgrader creep
 export const roleUpgrader = {
   run(creep: Creep) {
+    const controller = creep.room.controller;
+    if (!controller) {
+      return;
+    }
+    // Station next to the controller link (placed within 2 of the controller): refill and upgrade every tick
+    const link = SystemScript.getLinks(creep.room).controller;
+    if (link && (creep.store[RESOURCE_ENERGY] > 0 || link.store[RESOURCE_ENERGY] > 0)) {
+      if (!creep.pos.isNearTo(link)) {
+        creep.moveTo(link, { visualizePathStyle: { stroke: "#ffffff" } });
+        return;
+      }
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && link.store[RESOURCE_ENERGY] > 0) {
+        creep.withdraw(link, RESOURCE_ENERGY);
+      }
+      creep.upgradeController(controller);
+      return;
+    }
+
     if (creep.memory.working && creep.store[RESOURCE_ENERGY] === 0) {
       creep.memory.working = false;
       creep.say("🔄 harvest");
@@ -13,29 +31,11 @@ export const roleUpgrader = {
       creep.say("⚡ upgrade");
     }
 
-    if (!creep.room.controller) {
-      return;
-    }
-    // Upgrading mode
     if (creep.memory.working) {
-      if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: "#ffffff" } });
+      if (creep.upgradeController(controller) === ERR_NOT_IN_RANGE) {
+        creep.moveTo(controller, { visualizePathStyle: { stroke: "#ffffff" } });
       }
-
-      // Energy gathering mode
     } else {
-      const link = SystemScript.getLinks(creep.room).controller;
-      if (link && link.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        if (creep.withdraw(link, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-          creep.moveTo(link, { visualizePathStyle: { stroke: "#ffaa00" } });
-        }
-        return;
-      }
-      // Don't walk back to storage for a top-up while the link refills
-      if (link && creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-        creep.memory.working = true;
-        return;
-      }
       CreepScript.findEnergy(creep);
     }
   }
