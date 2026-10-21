@@ -32,10 +32,6 @@ declare global {
     sourceId?: Id<Source>;
     renewing?: boolean;
   }
-
-  interface SpawnMemory {
-    nextMinerSpawnSource: number;
-  }
 }
 
 function updateCreeps() {

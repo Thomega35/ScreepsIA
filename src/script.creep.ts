@@ -63,6 +63,17 @@ function isFullSize(creep: Creep, room: Room): boolean {
   return bodyCost(creep.body) >= Math.min(room.energyCapacityAvailable, roleMaxCost(creep.memory.role, room)) * 0.9;
 }
 
+// True once a replacement spawned now would reach the source just as this miner dies
+function isMinerExpiring(miner: Creep, spawn: StructureSpawn): boolean {
+  if (miner.spawning || miner.ticksToLive === undefined) {
+    return false;
+  }
+  const source = miner.memory.sourceId ? Game.getObjectById(miner.memory.sourceId) : null;
+  // Paths are longer than the straight range
+  const travel = source ? Math.ceil(spawn.pos.getRangeTo(source) * 1.5) : 0;
+  return miner.ticksToLive <= miner.body.length * CREEP_SPAWN_TIME + travel;
+}
+
 // Scripts related with creeps
 export const CreepScript = {
   spawnHarvester(spawn: StructureSpawn, saticName: string) {
@@ -85,12 +96,8 @@ export const CreepScript = {
     });
   },
 
-  spawnMiner(spawn: StructureSpawn, saticName: string, sources: Source[]) {
+  spawnMiner(spawn: StructureSpawn, saticName: string, source: Source) {
     const energyAvailable = Math.min(spawn.room.energyAvailable, MINER_MAX_COST);
-    spawn.memory.nextMinerSpawnSource =
-      spawn.memory.nextMinerSpawnSource !== undefined && spawn.memory.nextMinerSpawnSource !== null
-        ? (spawn.memory.nextMinerSpawnSource + 1) % sources.length
-        : 0;
     // One CARRY lets miners feed source links (built from RCL 5)
     const withCarry = (spawn.room.controller?.level ?? 0) >= 5;
     const bodyParts: BodyPartConstant[] = [
@@ -101,7 +108,7 @@ export const CreepScript = {
       memory: {
         role: "miner",
         working: false,
-        sourceId: sources[spawn.memory.nextMinerSpawnSource].id,
+        sourceId: source.id,
         spawnId: spawn.id
       }
     });
@@ -185,9 +192,11 @@ export const CreepScript = {
       energyAvailable >= minCost && (emergency || energyAvailable >= Math.min(capacity, roleMaxCost(role, spawn.room)));
 
     const needsHarvester = (miners.length === 0 || grabbers.length === 0) && harvesters.length < 2;
+    // Expiring miners don't count, so their replacement spawns before they die
+    const activeMiners = miners.filter(creep => !isMinerExpiring(creep, spawn));
     const needsMiner =
-      miners.length <= grabbers.length &&
-      ((contrlLvl <= 4 && miners.length < 3) || (contrlLvl >= 5 && miners.length < 2));
+      activeMiners.length <= grabbers.length &&
+      ((contrlLvl <= 4 && activeMiners.length < 3) || (contrlLvl >= 5 && activeMiners.length < 2));
     const grabberLimit = contrlLvl <= 3 ? 3 : 2;
     // Emergency grabbers are tiny: allow one extra so a full-size one can replace it
     const fullGrabbers = grabbers.filter(creep => isFullSize(creep, spawn.room)).length;
@@ -207,7 +216,13 @@ export const CreepScript = {
     if (needsHarvester) {
       if (ready(250, "harvester")) CreepScript.spawnHarvester(spawn, saticName);
     } else if (needsMiner) {
-      if (ready(contrlLvl >= 5 ? 300 : 250, "miner")) CreepScript.spawnMiner(spawn, saticName, sources);
+      if (ready(contrlLvl >= 5 ? 300 : 250, "miner")) {
+        const minersBySource = _.countBy(activeMiners, creep => creep.memory.sourceId);
+        const source = sources.reduce((least, candidate) =>
+          (minersBySource[candidate.id] ?? 0) < (minersBySource[least.id] ?? 0) ? candidate : least
+        );
+        CreepScript.spawnMiner(spawn, saticName, source);
+      }
     } else if (needsGrabber) {
       // No full-size grabber yet: a medium helper now beats waiting on a lone weak one to fill extensions
       const rush = fullGrabbers === 0 && grabbers.length < grabberLimit && energyAvailable >= MAX_COST.grabber / 4;
@@ -226,20 +241,20 @@ export const CreepScript = {
       creep.memory.renewing = false;
       return false;
     }
+    // Miners are replaced ahead of time instead: renewing costs as much and leaves the source unworked
+    if (creep.memory.role === "miner") {
+      creep.memory.renewing = false;
+      return false;
+    }
     if (!creep.memory.renewing) {
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
       // Only renew creeps at least as good as what we would spawn today
-      // Pre-RCL5 miners lack CARRY and can't feed source links
-      const outdatedMiner =
-        creep.memory.role === "miner" &&
-        (spawn.room.controller?.level ?? 0) >= 5 &&
-        creep.getActiveBodyparts(CARRY) === 0;
       // Carry-heavy upgraders are replaced by WORK-heavy ones once the controller link exists
       const outdatedUpgrader =
         creep.memory.role === "upgrader" &&
         SystemScript.getLinks(spawn.room).controller !== undefined &&
         creep.getActiveBodyparts(CARRY) > LINK_UPGRADER_CARRY;
-      const worthIt = !outdatedMiner && !outdatedUpgrader && isFullSize(creep, spawn.room);
+      const worthIt = !outdatedUpgrader && isFullSize(creep, spawn.room);
       if (ttl > RENEW_START_TTL || storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
         return false;
       }
