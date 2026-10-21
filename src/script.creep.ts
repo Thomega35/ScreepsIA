@@ -1,9 +1,31 @@
-import { SystemScript } from "script.system";
+import { LINK_SEND_THRESHOLD, SystemScript } from "script.system";
 import _ from "lodash";
 
 function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstant[] {
   const n = Math.min(count, Math.floor(MAX_CREEP_SIZE / pattern.length));
   return Array.from({ length: n }, () => pattern).flat();
+}
+
+const RENEW_START_TTL = 150;
+const RENEW_STOP_TTL = 1300;
+const RENEW_MIN_STORAGE = 10000;
+// Miners gain nothing past 6 WORK (source regen cap)
+const MINER_MAX_COST = 800;
+// Cost of the largest body each role can spawn
+const MAX_COST: Record<string, number> = {
+  miner: MINER_MAX_COST,
+  grabber: 2400,
+  harvester: 3000,
+  upgrader: 3200,
+  builder: 3200
+};
+
+function bodyCost(body: BodyPartDefinition[]): number {
+  return body.reduce((sum, part) => sum + BODYPART_COST[part.type], 0);
+}
+
+function isFullSize(creep: Creep, capacity: number): boolean {
+  return bodyCost(creep.body) >= Math.min(capacity, MAX_COST[creep.memory.role] ?? Infinity) * 0.9;
 }
 
 // Scripts related with creeps
@@ -29,7 +51,7 @@ export const CreepScript = {
   },
 
   spawnMiner(spawn: StructureSpawn, saticName: string, sources: Source[]) {
-    const energyAvailable = spawn.room.energyAvailable;
+    const energyAvailable = Math.min(spawn.room.energyAvailable, MINER_MAX_COST);
     spawn.memory.nextMinerSpawnSource =
       spawn.memory.nextMinerSpawnSource !== undefined && spawn.memory.nextMinerSpawnSource !== null
         ? (spawn.memory.nextMinerSpawnSource + 1) % sources.length
@@ -55,7 +77,7 @@ export const CreepScript = {
     if (energyAvailable < 1800) {
       bodyParts = repeatBody([CARRY, MOVE], Math.floor(energyAvailable / 100));
     } else {
-      bodyParts = repeatBody([CARRY, CARRY, MOVE], Math.floor((energyAvailable - 250) / 150));
+      bodyParts = repeatBody([CARRY, CARRY, MOVE], Math.floor(energyAvailable / 150));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🤲${Game.time}`, {
       memory: { role: "grabber", working: false, spawnId: spawn.id }
@@ -67,7 +89,7 @@ export const CreepScript = {
     if (energyAvailable < 1800) {
       bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     } else {
-      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
+      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
       memory: { role: "upgrader", working: false, spawnId: spawn.id }
@@ -80,7 +102,7 @@ export const CreepScript = {
     if (energyAvailable < 1800) {
       bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     } else {
-      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor((energyAvailable - 50) / 200));
+      bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🏗${Game.time}`, {
       memory: { role: "builder", working: false, spawnId: spawn.id }
@@ -108,15 +130,30 @@ export const CreepScript = {
     const upgraders = creepsByRole.upgrader || [];
     const builders = creepsByRole.builder || [];
 
+    // Let an adjacent creep renew instead of starting a new spawn
+    const renewingHere = Object.values(Game.creeps).some(
+      creep => creep.memory.renewing && creep.memory.spawnId === spawn.id && creep.pos.isNearTo(spawn)
+    );
+    if (renewingHere) {
+      return;
+    }
+
     const isConstructionSite = spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0;
     const contrlLvl = spawn.room.controller?.level ?? 0;
+    const capacity = spawn.room.energyCapacityAvailable;
+    // Economy collapsed: nobody can refill extensions, so spawn with what we have
+    const emergency = harvesters.length === 0 && (miners.length === 0 || grabbers.length === 0);
+    const ready = (minCost: number, role: string) =>
+      energyAvailable >= minCost && (emergency || energyAvailable >= Math.min(capacity, MAX_COST[role]));
 
     const needsHarvester = (miners.length === 0 || grabbers.length === 0) && harvesters.length < 2;
     const needsMiner =
       miners.length <= grabbers.length &&
       ((contrlLvl <= 4 && miners.length < 3) || (contrlLvl >= 5 && miners.length < 2));
-    const grabberLimit = contrlLvl <= 3 ? 3 : contrlLvl >= 5 ? 1 : 2;
-    const needsGrabber = grabbers.length < grabberLimit;
+    const grabberLimit = contrlLvl <= 3 ? 3 : 2;
+    // Emergency grabbers are tiny: allow one extra so a full-size one can replace it
+    const fullGrabbers = grabbers.filter(creep => isFullSize(creep, capacity)).length;
+    const needsGrabber = grabbers.length < grabberLimit || (fullGrabbers < grabberLimit && grabbers.length <= grabberLimit);
     const needsUpgrader =
       (contrlLvl === 1 && upgraders.length < 8) ||
       (contrlLvl <= 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
@@ -128,17 +165,55 @@ export const CreepScript = {
         (contrlLvl <= 4 && builders.length < 2) ||
         (contrlLvl >= 5 && builders.length < 1));
 
-    if (needsHarvester && energyAvailable >= 250) {
-      CreepScript.spawnHarvester(spawn, saticName);
-    } else if (needsMiner && energyAvailable >= (contrlLvl >= 5 ? 300 : 250)) {
-      CreepScript.spawnMiner(spawn, saticName, sources);
-    } else if (needsGrabber && energyAvailable >= 100) {
-      CreepScript.spawnGrabber(spawn, saticName);
-    } else if (needsBuilder && energyAvailable >= 250) {
-      CreepScript.spawnBuilder(spawn, saticName);
-    } else if (needsUpgrader && energyAvailable >= 250) {
-      CreepScript.spawnUpgrader(spawn, saticName);
+    if (needsHarvester) {
+      if (ready(250, "harvester")) CreepScript.spawnHarvester(spawn, saticName);
+    } else if (needsMiner) {
+      if (ready(contrlLvl >= 5 ? 300 : 250, "miner")) CreepScript.spawnMiner(spawn, saticName, sources);
+    } else if (needsGrabber) {
+      // No full-size grabber yet: a medium helper now beats waiting on a lone weak one to fill extensions
+      const rush = fullGrabbers === 0 && grabbers.length < grabberLimit && energyAvailable >= MAX_COST.grabber / 4;
+      if (rush || ready(100, "grabber")) CreepScript.spawnGrabber(spawn, saticName);
+    } else if (needsBuilder) {
+      if (ready(250, "builder")) CreepScript.spawnBuilder(spawn, saticName);
+    } else if (needsUpgrader) {
+      if (ready(250, "upgrader")) CreepScript.spawnUpgrader(spawn, saticName);
     }
+  },
+  // Returns true while the creep is busy renewing (skip its role logic)
+  renew(creep: Creep): boolean {
+    const spawn = Game.getObjectById(creep.memory.spawnId);
+    const ttl = creep.ticksToLive ?? CREEP_LIFE_TIME;
+    if (!spawn) {
+      creep.memory.renewing = false;
+      return false;
+    }
+    if (!creep.memory.renewing) {
+      const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
+      // Only renew creeps at least as good as what we would spawn today
+      // Pre-RCL5 miners lack CARRY and can't feed source links
+      const outdatedMiner =
+        creep.memory.role === "miner" && (spawn.room.controller?.level ?? 0) >= 5 && creep.getActiveBodyparts(CARRY) === 0;
+      const worthIt = !outdatedMiner && isFullSize(creep, spawn.room.energyCapacityAvailable);
+      if (ttl > RENEW_START_TTL || storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
+        return false;
+      }
+      creep.memory.renewing = true;
+    }
+    if (ttl >= RENEW_STOP_TTL) {
+      creep.memory.renewing = false;
+      return false;
+    }
+    if (!creep.pos.isNearTo(spawn)) {
+      creep.moveTo(spawn, { visualizePathStyle: { stroke: "#00ff00" } });
+      return true;
+    }
+    const result = spawn.renewCreep(creep);
+    if (result === ERR_NOT_ENOUGH_ENERGY || result === ERR_FULL) {
+      creep.memory.renewing = false;
+      return false;
+    }
+    creep.say("♻️");
+    return true;
   },
   doNotDisturb(creep: Creep) {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
@@ -217,7 +292,12 @@ export const CreepScript = {
     // Hub link forwards energy to the controller link
     if (!emptyingStructure) {
       const { hub, controller } = SystemScript.getLinks(creep.room);
-      if (hub && controller && hub.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+      if (
+        hub &&
+        controller &&
+        controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD &&
+        hub.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+      ) {
         emptyingStructure = hub;
       }
     }

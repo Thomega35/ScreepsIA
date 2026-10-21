@@ -26,6 +26,8 @@ const screepsSourceMap = {
 
 export default {
   input: "src/main.ts",
+  // Provided by the Screeps runtime (lodash 3.10)
+  external: ["lodash"],
   output: {
     file: build_path + "/main.js",
     format: "cjs",

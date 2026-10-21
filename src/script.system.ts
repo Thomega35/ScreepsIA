@@ -2,7 +2,7 @@ import _ from "lodash";
 
 // Scripts annex
 const REPAIR_CACHE_TTL = 5;
-const LINK_SEND_THRESHOLD = 400;
+export const LINK_SEND_THRESHOLD = 400;
 let lastPixelStatus = "";
 
 export interface RoomLinks {
@@ -177,6 +177,7 @@ export const SystemScript = {
       // EACH TOWER
       for (const tower of towers) {
         // ATTACK
+        // Name-based ally whitelist is intentional: spares creeps named "*scala*" (spoofable, accepted risk)
         const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
           filter: creep => {
             return !creep.name.toLowerCase().includes("scala");

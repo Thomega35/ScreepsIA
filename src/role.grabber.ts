@@ -1,9 +1,22 @@
 import { CreepScript } from "script.creep";
+import { LINK_SEND_THRESHOLD, SystemScript } from "script.system";
 import _ from "lodash";
 
 // Complex energy grabber creep (need miner to work)
 export const roleGrabber = {
   pickup(creep: Creep) {
+    // Spawn/extensions come first so spawning never waits on scavenging
+    const storage = creep.room.storage;
+    if (
+      storage &&
+      creep.room.energyAvailable < creep.room.energyCapacityAvailable &&
+      storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+    ) {
+      if (creep.withdraw(storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+        creep.moveTo(storage);
+      }
+      return;
+    }
     let roomObject: Tombstone | Ruin | Resource | null = null;
     roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
       filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
@@ -17,6 +30,17 @@ export const roleGrabber = {
       roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
         filter: resource => resource.amount > 100
       });
+    }
+    // Drain the hub link into storage when the controller link doesn't need it
+    if (!roomObject && storage) {
+      const { hub, controller } = SystemScript.getLinks(creep.room);
+      const controllerNeeds = controller && controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD;
+      if (hub && !controllerNeeds && hub.store.getUsedCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD / 2) {
+        if (creep.withdraw(hub, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+          creep.moveTo(hub);
+        }
+        return;
+      }
     }
     if (!roomObject) {
       return;

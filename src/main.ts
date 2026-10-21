@@ -28,6 +28,7 @@ declare global {
     working: boolean;
     spawnId: Id<StructureSpawn>;
     sourceId?: Id<Source>;
+    renewing?: boolean;
   }
 
   interface SpawnMemory {
@@ -38,6 +39,9 @@ declare global {
 function updateCreeps() {
   for (const name in Game.creeps) {
     const creep = Game.creeps[name];
+    if (CreepScript.renew(creep)) {
+      continue;
+    }
     const role = creep.memory.role;
     if (role === "harvester") {
       roleHarvester.run(creep);
