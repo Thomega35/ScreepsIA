@@ -29,7 +29,7 @@ async function state() {
     const { objects } = await api(`game/room-objects?room=${room}&shard=${SHARD}`);
     const mine = objects.filter(o => o.user === me._id);
     console.log(`\n=== ${room} ===`);
-    for (const o of mine.filter(o => ["spawn", "extension", "controller", "tower", "storage"].includes(o.type))) {
+    for (const o of mine.filter(o => ["spawn", "extension", "controller", "tower", "storage", "link"].includes(o.type))) {
       const energy = o.store ? ` energy ${o.store.energy ?? 0}/${o.storeCapacityResource?.energy ?? o.storeCapacity ?? "?"}` : "";
       const extra = o.type === "controller" ? ` lvl ${o.level} progress ${o.progress}/${o.progressTotal}` : "";
       const spawning = o.spawning ? ` spawning ${o.spawning.name}` : "";
@@ -43,6 +43,10 @@ async function state() {
     }
     const sites = objects.filter(o => o.type === "constructionSite" && o.user === me._id);
     console.log(`Construction sites: ${sites.length}`);
+    for (const o of objects.filter(o => o.type === "energy" || o.type === "source")) {
+      const amount = o.type === "energy" ? `${o.resourceType ?? "energy"} ${o.amount ?? o.energy}` : `${o.energy}/${o.energyCapacity}`;
+      console.log(`${o.type} @${o.x},${o.y} ${amount}`);
+    }
   }
 
   const mem = await api(`user/memory?shard=${SHARD}`);
