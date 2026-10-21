@@ -17,6 +17,17 @@ export const roleGrabber = {
       }
       return;
     }
+    // A full hub blocks the source links and makes miners overflow on the floor, so drain it before scavenging
+    if (storage) {
+      const { hub, controller } = SystemScript.getLinks(creep.room);
+      const controllerNeeds = controller && controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD;
+      if (hub && !controllerNeeds && hub.store.getUsedCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD / 2) {
+        if (creep.withdraw(hub, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+          creep.moveTo(hub);
+        }
+        return;
+      }
+    }
     let roomObject: Tombstone | Ruin | Resource | null = null;
     roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
       filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
@@ -30,17 +41,6 @@ export const roleGrabber = {
       roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
         filter: resource => resource.amount > 100
       });
-    }
-    // Drain the hub link into storage when the controller link doesn't need it
-    if (!roomObject && storage) {
-      const { hub, controller } = SystemScript.getLinks(creep.room);
-      const controllerNeeds = controller && controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD;
-      if (hub && !controllerNeeds && hub.store.getUsedCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD / 2) {
-        if (creep.withdraw(hub, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-          creep.moveTo(hub);
-        }
-        return;
-      }
     }
     if (!roomObject) {
       return;
