@@ -1,11 +1,17 @@
 import { BuildScript } from "script.build";
 import { CreepScript } from "script.creep";
 import { ErrorMapper } from "utils/ErrorMapper";
+import { ExpansionScript } from "script.expansion";
+import type { RoomIntel } from "script.scouting";
 import { SystemScript } from "script.system";
+import { Traffic } from "utils/traffic";
 import { roleBuilder } from "role.builder";
+import { roleClaimer } from "role.claimer";
 import { roleGrabber } from "role.grabber";
 import { roleHarvester } from "role.harvester";
 import { roleMiner } from "role.miner";
+import { rolePioneer } from "role.pioneer";
+import { roleScout } from "role.scout";
 import { roleUpgrader } from "role.upgrader";
 
 const REPORT_INTERVAL = 20;
@@ -23,15 +29,48 @@ declare global {
   interface Memory {
     uuid: number;
     log: any;
+    // Set from the game console to draw the final base layout
+    showLayout?: boolean;
+    // Last seen owner of each room, used to route around other players' bases
+    roomOwners?: Record<string, string>;
+    // Room to claim and spot of its first spawn (alternative to the "claim" flag)
+    claim?: { room: string; x: number; y: number; claimed?: boolean; claimers?: number };
+    // What scouts saw in each room, used to pick the next colony
+    intel?: Record<string, RoomIntel>;
+    // Room a scout must look at before it can be claimed
+    scoutTarget?: string;
+    // Uploaded by scripts/seed-intel.mjs, merged into intel/roomOwners on the next tick
+    intelImport?: { intel?: Record<string, RoomIntel>; owners?: Record<string, string | null> };
   }
 
   interface CreepMemory {
     role: string;
     working: boolean;
     spawnId: Id<StructureSpawn>;
+    room?: string;
     sourceId?: Id<Source>;
     renewing?: boolean;
+    // Expansion creeps: room to claim, and the next room on their route
+    target?: string;
+    nextRoom?: string;
+    routeFrom?: string;
+    scoutRoom?: string;
+    scoutPicked?: number;
   }
+
+  interface RoomMemory {
+    anchorSpawnId?: Id<StructureSpawn>;
+  }
+}
+
+// The base layout is anchored on the room's first spawn, so it stays stable when more spawns are built
+function getAnchorSpawn(room: Room, spawns: StructureSpawn[]): StructureSpawn {
+  const anchor = room.memory.anchorSpawnId && Game.getObjectById(room.memory.anchorSpawnId);
+  if (anchor) {
+    return anchor;
+  }
+  room.memory.anchorSpawnId = spawns[0].id;
+  return spawns[0];
 }
 
 function updateCreeps() {
@@ -51,6 +90,12 @@ function updateCreeps() {
       roleUpgrader.run(creep);
     } else if (role === "builder") {
       roleBuilder.run(creep);
+    } else if (role === "claimer") {
+      roleClaimer.run(creep);
+    } else if (role === "pioneer") {
+      rolePioneer.run(creep);
+    } else if (role === "scout") {
+      roleScout.run(creep);
     }
   }
 }
@@ -61,16 +106,35 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const staticName = "ESCALATOR";
 
   SystemScript.cleanMemory();
+  if (Game.time % 100 === 0) {
+    Traffic.cleanup();
+  }
 
   SystemScript.updateSafeMode();
 
-  for (const spawnName in Game.spawns) {
-    const spawn = Game.spawns[spawnName];
+  ExpansionScript.update();
 
-    CreepScript.spawnCreeps(spawn, staticName);
+  for (const room of Object.values(Game.rooms)) {
+    const spawns = room.controller?.my ? room.find(FIND_MY_SPAWNS) : [];
+    if (spawns.length === 0) {
+      continue;
+    }
+    const anchor = getAnchorSpawn(room, spawns);
+
+    // Spawns busy renewing a creep are left alone
+    const idle = spawns.find(spawn => !spawn.spawning && !CreepScript.isRenewingAt(spawn));
+    if (idle) {
+      CreepScript.spawnCreeps(idle, staticName);
+    }
 
     if (Game.time % 100 === 0) {
-      BuildScript.run(spawn);
+      BuildScript.run(anchor);
+    }
+    if (Game.time % 10 === 5) {
+      BuildScript.updateExtensions(anchor);
+    }
+    if (Memory.showLayout) {
+      BuildScript.drawLayout(anchor);
     }
   }
 

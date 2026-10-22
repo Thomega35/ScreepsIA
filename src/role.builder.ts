@@ -1,4 +1,5 @@
 import { CreepScript } from "script.creep";
+import { ExpansionScript } from "script.expansion";
 
 const CONSTRUCTION_PRIORITY: BuildableStructureConstant[] = [
   STRUCTURE_SPAWN,
@@ -24,6 +25,10 @@ export const roleBuilder = {
     return creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
   },
   run(creep: Creep) {
+    // Former pioneers of a cancelled expansion walk back home
+    if (creep.memory.room && ExpansionScript.travelTo(creep, creep.memory.room)) {
+      return;
+    }
     if (creep.memory.working === undefined || creep.memory.working === null) {
       creep.memory.working = false;
     }
@@ -42,7 +47,13 @@ export const roleBuilder = {
     if (creep.memory.working) {
       const constructionSite = roleBuilder.getConstructionSite(creep);
       if (constructionSite) {
-        if (creep.build(constructionSite) === ERR_NOT_IN_RANGE) {
+        // Can't build an obstacle under ourselves: step off the site first
+        if (creep.pos.isEqualTo(constructionSite.pos)) {
+          const { path } = PathFinder.search(creep.pos, { pos: constructionSite.pos, range: 1 }, { flee: true });
+          if (path.length > 0) {
+            creep.move(creep.pos.getDirectionTo(path[0]));
+          }
+        } else if (creep.build(constructionSite) === ERR_NOT_IN_RANGE) {
           creep.moveTo(constructionSite, { visualizePathStyle: { stroke: "#ffffff" } });
         }
       } else if (creep.room.controller) {

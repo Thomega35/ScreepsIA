@@ -1,4 +1,5 @@
-import { LINK_SEND_THRESHOLD, SystemScript } from "script.system";
+import { LINK_SEND_THRESHOLD, SystemScript, homeRoomName } from "script.system";
+import { ExpansionScript } from "script.expansion";
 import _ from "lodash";
 
 function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstant[] {
@@ -7,6 +8,7 @@ function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstan
 }
 
 const RENEW_START_TTL = 150;
+const PARK_RANGE = 5;
 const RENEW_STOP_TTL = 1300;
 const RENEW_MIN_STORAGE = 10000;
 // Miners gain nothing past 6 WORK (source regen cap)
@@ -81,7 +83,7 @@ export const CreepScript = {
     const sources = spawn.room.find(FIND_SOURCES);
     const assignedBySource = new Map<Id<Source>, number>();
     for (const creep of Object.values(Game.creeps)) {
-      if (creep.memory.spawnId === spawn.id && creep.memory.role === "harvester" && creep.memory.sourceId) {
+      if (homeRoomName(creep) === spawn.room.name && creep.memory.role === "harvester" && creep.memory.sourceId) {
         assignedBySource.set(creep.memory.sourceId, (assignedBySource.get(creep.memory.sourceId) ?? 0) + 1);
       }
     }
@@ -92,7 +94,7 @@ export const CreepScript = {
     }, sources[0]);
     const bodyParts = repeatBody([WORK, CARRY, MOVE, MOVE], Math.floor(energyAvailable / 250));
     spawn.spawnCreep(bodyParts, `${saticName}☄${Game.time}`, {
-      memory: { role: "harvester", working: false, sourceId: source.id, spawnId: spawn.id }
+      memory: { role: "harvester", working: false, sourceId: source.id, spawnId: spawn.id, room: spawn.room.name }
     });
   },
 
@@ -109,7 +111,8 @@ export const CreepScript = {
         role: "miner",
         working: false,
         sourceId: source.id,
-        spawnId: spawn.id
+        spawnId: spawn.id,
+        room: spawn.room.name
       }
     });
   },
@@ -122,7 +125,7 @@ export const CreepScript = {
       bodyParts = repeatBody([CARRY, CARRY, MOVE], Math.floor(energyAvailable / 150));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🤲${Game.time}`, {
-      memory: { role: "grabber", working: false, spawnId: spawn.id }
+      memory: { role: "grabber", working: false, spawnId: spawn.id, room: spawn.room.name }
     });
   },
   spawnUpgrader(spawn: StructureSpawn, saticName: string) {
@@ -138,7 +141,7 @@ export const CreepScript = {
           : repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🛠${Game.time}`, {
-      memory: { role: "upgrader", working: false, spawnId: spawn.id }
+      memory: { role: "upgrader", working: false, spawnId: spawn.id, room: spawn.room.name }
     });
   },
 
@@ -151,7 +154,7 @@ export const CreepScript = {
       bodyParts = repeatBody([WORK, CARRY, MOVE], Math.floor(energyAvailable / 200));
     }
     spawn.spawnCreep(bodyParts, `${saticName}🏗${Game.time}`, {
-      memory: { role: "builder", working: false, spawnId: spawn.id }
+      memory: { role: "builder", working: false, spawnId: spawn.id, room: spawn.room.name }
     });
   },
   spawnCreeps(spawn: StructureSpawn, saticName: string) {
@@ -165,7 +168,7 @@ export const CreepScript = {
     }
     const energyAvailable = spawn.room.energyAvailable;
     const creepsByRole = _.groupBy(
-      Object.values(Game.creeps).filter(creep => creep.memory.spawnId === spawn.id),
+      Object.values(Game.creeps).filter(creep => homeRoomName(creep) === spawn.room.name),
       creep => creep.memory.role
     );
 
@@ -174,14 +177,6 @@ export const CreepScript = {
     const grabbers = creepsByRole.grabber || [];
     const upgraders = creepsByRole.upgrader || [];
     const builders = creepsByRole.builder || [];
-
-    // Let an adjacent creep renew instead of starting a new spawn
-    const renewingHere = Object.values(Game.creeps).some(
-      creep => creep.memory.renewing && creep.memory.spawnId === spawn.id && creep.pos.isNearTo(spawn)
-    );
-    if (renewingHere) {
-      return;
-    }
 
     const isConstructionSite = spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0;
     const contrlLvl = spawn.room.controller?.level ?? 0;
@@ -231,18 +226,26 @@ export const CreepScript = {
       if (ready(250, "builder")) CreepScript.spawnBuilder(spawn, saticName);
     } else if (needsUpgrader) {
       if (ready(250, "upgrader")) CreepScript.spawnUpgrader(spawn, saticName);
+    } else {
+      ExpansionScript.spawnCreeps(spawn, saticName);
     }
+  },
+  isRenewingAt(spawn: StructureSpawn): boolean {
+    return spawn.pos.findInRange(FIND_MY_CREEPS, 1, { filter: creep => creep.memory.renewing }).length > 0;
   },
   // Returns true while the creep is busy renewing (skip its role logic)
   renew(creep: Creep): boolean {
-    const spawn = Game.getObjectById(creep.memory.spawnId);
-    const ttl = creep.ticksToLive ?? CREEP_LIFE_TIME;
-    if (!spawn) {
+    // Miners are replaced ahead of time instead: renewing costs as much and leaves the source unworked
+    if (creep.memory.role === "miner") {
       creep.memory.renewing = false;
       return false;
     }
-    // Miners are replaced ahead of time instead: renewing costs as much and leaves the source unworked
-    if (creep.memory.role === "miner") {
+    const ttl = creep.ticksToLive ?? CREEP_LIFE_TIME;
+    if (!creep.memory.renewing && ttl > RENEW_START_TTL) {
+      return false;
+    }
+    const spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS) ?? Game.getObjectById(creep.memory.spawnId);
+    if (!spawn) {
       creep.memory.renewing = false;
       return false;
     }
@@ -255,7 +258,7 @@ export const CreepScript = {
         SystemScript.getLinks(spawn.room).controller !== undefined &&
         creep.getActiveBodyparts(CARRY) > LINK_UPGRADER_CARRY;
       const worthIt = !outdatedUpgrader && isFullSize(creep, spawn.room);
-      if (ttl > RENEW_START_TTL || storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
+      if (storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
         return false;
       }
       creep.memory.renewing = true;
@@ -275,6 +278,45 @@ export const CreepScript = {
     }
     creep.say("♻️");
     return true;
+  },
+  // Idle creeps step off roads, construction sites and spawn access tiles onto the closest free tile
+  park(creep: Creep) {
+    const spawns = creep.room.find(FIND_MY_SPAWNS);
+    const nearSpawn = (px: number, py: number) =>
+      spawns.some(s => Math.max(Math.abs(s.pos.x - px), Math.abs(s.pos.y - py)) <= 1);
+    const onRoad = creep.pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_ROAD);
+    if (!onRoad && creep.pos.lookFor(LOOK_CONSTRUCTION_SITES).length === 0 && !nearSpawn(creep.pos.x, creep.pos.y)) {
+      return;
+    }
+    const { x, y } = creep.pos;
+    const taken = new Set<number>();
+    const area = creep.room.lookAtArea(
+      Math.max(1, y - PARK_RANGE),
+      Math.max(1, x - PARK_RANGE),
+      Math.min(48, y + PARK_RANGE),
+      Math.min(48, x + PARK_RANGE),
+      true
+    );
+    for (const item of area) {
+      if (item.type !== LOOK_TERRAIN || item.terrain === "wall") {
+        taken.add(item.y * 50 + item.x);
+      }
+    }
+    for (let range = 1; range <= PARK_RANGE; range++) {
+      for (let dx = -range; dx <= range; dx++) {
+        for (let dy = -range; dy <= range; dy++) {
+          const px = x + dx;
+          const py = y + dy;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== range || px < 1 || px > 48 || py < 1 || py > 48) {
+            continue;
+          }
+          if (!taken.has(py * 50 + px) && !nearSpawn(px, py)) {
+            creep.moveTo(px, py);
+            return;
+          }
+        }
+      }
+    }
   },
   doNotDisturb(creep: Creep) {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {

@@ -43,6 +43,7 @@ export const roleGrabber = {
       });
     }
     if (!roomObject) {
+      CreepScript.park(creep);
       return;
     }
     // Withdraw from the tombstone or ruin
@@ -108,6 +109,7 @@ export const roleGrabber = {
     // Send energy to emptying structure
     const emptyingStructure = CreepScript.getEmptyingStructure(creep);
     if (!emptyingStructure) {
+      CreepScript.park(creep);
       return;
     }
 
