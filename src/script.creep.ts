@@ -325,7 +325,7 @@ export const CreepScript = {
     }
     const spawn = Game.getObjectById(creep.memory.spawnId);
     const WaitPosition = spawn
-      ? new RoomPosition(spawn.pos.x - 10, spawn.pos.y + 10, spawn.pos.roomName)
+      ? new RoomPosition(Math.max(1, spawn.pos.x - 10), Math.min(48, spawn.pos.y + 10), spawn.pos.roomName)
       : new RoomPosition(10, 10, creep.room.name);
     creep.moveTo(WaitPosition, { visualizePathStyle: { stroke: "#ffaa00" } });
     creep.say("Au coin! 😭");

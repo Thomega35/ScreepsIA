@@ -62,18 +62,18 @@ export const roleGrabber = {
   },
   emptyMinerals(creep: Creep): boolean {
     const storedResources = _.filter(
-      Object.keys(creep.store),
-      resource => creep.store[resource as ResourceConstant] > 0
+      Object.keys(creep.store) as ResourceConstant[],
+      resource => resource !== RESOURCE_ENERGY && creep.store[resource] > 0
     );
-    if (storedResources.length > 1) {
+    if (storedResources.length > 0) {
       const storage = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {
         filter: structure => {
           return structure.structureType === STRUCTURE_STORAGE;
         }
       });
       if (!storage) {
-        creep.drop(storedResources[0] as ResourceConstant);
-      } else if (creep.transfer(storage, storedResources[1] as ResourceConstant) === ERR_NOT_IN_RANGE) {
+        creep.drop(storedResources[0]);
+      } else if (creep.transfer(storage, storedResources[0]) === ERR_NOT_IN_RANGE) {
         creep.moveTo(storage);
       }
       return true;
@@ -96,13 +96,12 @@ export const roleGrabber = {
   },
   run(creep: Creep) {
     roleGrabber.updateWorking(creep);
+    if (roleGrabber.emptyMinerals(creep)) {
+      return;
+    }
     // Energy gathering mode
     if (!creep.memory.working) {
       roleGrabber.pickup(creep);
-      return;
-    }
-    // If contain other resources than energy, drop them to storage
-    if (roleGrabber.emptyMinerals(creep)) {
       return;
     }
 

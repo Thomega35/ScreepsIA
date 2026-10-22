@@ -150,5 +150,3 @@ export const loop = ErrorMapper.wrapLoop(() => {
     SystemScript.report();
   }
 });
-
-loop();
