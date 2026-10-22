@@ -12,6 +12,14 @@ export interface RoomLinks {
 const linksCache = new Map<string, { tick: number; links: RoomLinks }>();
 // Heap-only cache, lost on global reset (fine, it is rebuilt next tick)
 const towerRepairCache = new Map<Id<StructureTower>, { targetId: Id<Structure>; tick: number }>();
+// Road tiles of each room's current plan, set by the build cycle. Heap only: after a reset all roads count as planned
+// until the next cycle.
+const plannedRoads = new Map<string, Set<number>>();
+
+function isPlannedRoad(road: Structure): boolean {
+  const planned = plannedRoads.get(road.room.name);
+  return !planned || planned.has(road.pos.y * 50 + road.pos.x);
+}
 const SAFE_MODE_GUARDED: string[] = [STRUCTURE_SPAWN, STRUCTURE_TOWER];
 
 // Name-based ally whitelist is intentional: spares creeps named "*scala*" (spoofable, accepted risk)
@@ -24,12 +32,22 @@ function needsTowerRepair(structure: Structure): boolean {
     structure.hits < structure.hitsMax &&
     structure.structureType !== STRUCTURE_WALL &&
     ((structure.structureType === STRUCTURE_RAMPART && structure.hits < 30000) ||
-      (structure.structureType === STRUCTURE_ROAD && structure.hits < structure.hitsMax / 3) ||
+      (structure.structureType === STRUCTURE_ROAD &&
+        structure.hits < structure.hitsMax / 3 &&
+        isPlannedRoad(structure)) ||
       (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_ROAD))
   );
 }
 
+// Room the creep belongs to (creeps spawned before `room` existed fall back to their spawn's room)
+export function homeRoomName(creep: Creep): string {
+  return creep.memory.room ?? Game.getObjectById(creep.memory.spawnId)?.room.name ?? creep.room.name;
+}
+
 export const SystemScript = {
+  setPlannedRoads(roomName: string, tiles: number[]) {
+    plannedRoads.set(roomName, new Set(tiles));
+  },
   generatePixel() {
     if (Game.cpu.bucket === 10000 && Game.cpu.generatePixel() === OK) {
       console.log(`[${Game.time}] 💎 Pixel generated`);
@@ -37,10 +55,7 @@ export const SystemScript = {
   },
   // One line per owned room
   report() {
-    const creepsByRoom = _.groupBy(
-      Object.values(Game.creeps),
-      creep => Game.getObjectById(creep.memory.spawnId)?.room.name ?? creep.room.name
-    );
+    const creepsByRoom = _.groupBy(Object.values(Game.creeps), homeRoomName);
     for (const room of Object.values(Game.rooms)) {
       const controller = room.controller;
       if (!controller?.my) {

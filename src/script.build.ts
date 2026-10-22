@@ -1,3 +1,4 @@
+import { connectRoads, structure as drawStructure } from "@screepers/room-visual";
 import { SystemScript } from "script.system";
 
 // Scripts related with structure building
@@ -5,10 +6,23 @@ import { SystemScript } from "script.system";
 
 // Concurrent road sites per room, so roads never starve structures of the 100 sites cap
 const MAX_ROAD_SITES = 10;
-const EXTENSION_SEARCH_RANGE = 12;
-// Roads avoid future extension slots unless the detour is really long
-const EXTENSION_SLOT_ROAD_COST = 20;
+// Max distance of extensions from the base center
+const LAYOUT_RADIUS = 10;
 const ROADS_MIN_LEVEL = 3;
+const RELOCATE_MIN_STORAGE = 50000;
+const LAYOUT_DRAW_REFRESH = 50;
+
+interface PlannedStructure {
+  x: number;
+  y: number;
+  type: StructureConstant;
+}
+
+// Heap cache: planning the layout every tick just to draw it would waste CPU
+const layoutDrawings = new Map<
+  string,
+  { tick: number; items: PlannedStructure[]; obsolete: { x: number; y: number }[] }
+>();
 
 interface Tile {
   x: number;
@@ -20,15 +34,26 @@ interface RoadPlan {
   sourceStands: Map<Id<Source>, Tile>;
 }
 
-const ORTHOGONAL: [number, number][] = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1]
-];
+interface Slot extends Tile {
+  // Layout road tile the filler stands on to refill this extension
+  road: number;
+}
+
+interface BaseLayout {
+  // Every candidate extension tile, best first
+  slots: Slot[];
+  // Layout road tree towards the spawn/storage (-1 = root)
+  roadParent: Map<number, number>;
+  // Tiles kept free for the spawns still to build
+  reservedSpawns: Tile[];
+}
 
 function tileKey(x: number, y: number): number {
   return y * 50 + x;
+}
+
+function mod(value: number, n: number): number {
+  return ((value % n) + n) % n;
 }
 
 function inBuildArea(x: number, y: number): boolean {
@@ -72,55 +97,165 @@ function findMine<T extends StructureConstant>(room: Room, structureType: T): (A
   ];
 }
 
-// Checkerboard around the spawn (same parity as the historical spiral), closest rings first
-function planExtensionSlots(spawn: StructureSpawn, occupied: Set<number>): Tile[] {
+// Flower layout: diagonal road lines every 4 tiles (each road tile feeds 6 extensions), crossed by a spine every 8.
+// Anchored on the spawn, so the spawn always has road exits.
+function isLayoutRoad(spawn: StructureSpawn, x: number, y: number): boolean {
+  return mod(x + y - spawn.pos.x - spawn.pos.y, 4) === 0 || mod(x - y - spawn.pos.x + spawn.pos.y, 8) === 0;
+}
+
+// Tiles nothing can be built on, except extensions and roads which the layout may move
+function getBlockedTiles(room: Room): Set<number> {
+  const movable: string[] = [STRUCTURE_EXTENSION, STRUCTURE_ROAD, STRUCTURE_RAMPART, STRUCTURE_CONTAINER];
+  const blocked = new Set<number>();
+  const objects: { pos: RoomPosition }[] = [
+    ...room.find(FIND_STRUCTURES).filter(s => !movable.includes(s.structureType)),
+    ...room.find(FIND_CONSTRUCTION_SITES).filter(s => !movable.includes(s.structureType)),
+    ...room.find(FIND_SOURCES),
+    ...room.find(FIND_MINERALS)
+  ];
+  for (const object of objects) {
+    blocked.add(tileKey(object.pos.x, object.pos.y));
+  }
+  return blocked;
+}
+
+// Existing storage, or the tile reserved for it: 1 tile away from the spawn, else next to it
+function plannedStoragePos(spawn: StructureSpawn, blocked: Set<number>): Tile | null {
+  const existing = findMine(spawn.room, STRUCTURE_STORAGE)[0];
+  if (existing) {
+    return existing.pos;
+  }
+  const terrain = spawn.room.getTerrain();
+  for (const range of [2, 1]) {
+    const spot = ring(spawn.pos, range).find(
+      t =>
+        inBuildArea(t.x, t.y) &&
+        terrain.get(t.x, t.y) !== TERRAIN_MASK_WALL &&
+        !isLayoutRoad(spawn, t.x, t.y) &&
+        !blocked.has(tileKey(t.x, t.y))
+    );
+    if (spot) {
+      return spot;
+    }
+  }
+  return null;
+}
+
+// Extra spawns go around the storage (next to it first), closest to the first spawn
+function plannedSpawnPositions(spawn: StructureSpawn, blocked: Set<number>, storage: Tile | null): Tile[] {
+  const missing = CONTROLLER_STRUCTURES[STRUCTURE_SPAWN][8] - findMine(spawn.room, STRUCTURE_SPAWN).length;
+  if (!storage || missing <= 0) {
+    return [];
+  }
+  const terrain = spawn.room.getTerrain();
+  return [1, 2]
+    .flatMap(range => ring(storage, range).map(t => ({ ...t, range })))
+    .filter(
+      t =>
+        inBuildArea(t.x, t.y) &&
+        terrain.get(t.x, t.y) !== TERRAIN_MASK_WALL &&
+        !isLayoutRoad(spawn, t.x, t.y) &&
+        !blocked.has(tileKey(t.x, t.y))
+    )
+    .sort((a, b) => a.range - b.range || chebyshev(a, spawn.pos) - chebyshev(b, spawn.pos))
+    .slice(0, missing);
+}
+
+function planBaseLayout(spawn: StructureSpawn): BaseLayout {
   const room = spawn.room;
   const terrain = room.getTerrain();
-  const avoid: { pos: RoomPosition; range: number }[] = [
+  const blocked = getBlockedTiles(room);
+  const storage = plannedStoragePos(spawn, blocked);
+  if (storage) {
+    blocked.add(tileKey(storage.x, storage.y));
+  }
+  const reservedSpawns = plannedSpawnPositions(spawn, blocked, storage);
+  for (const t of reservedSpawns) {
+    blocked.add(tileKey(t.x, t.y));
+  }
+  const center = storage ? { x: (spawn.pos.x + storage.x) / 2, y: (spawn.pos.y + storage.y) / 2 } : spawn.pos;
+  const avoid: { pos: Tile; range: number }[] = [
     ...room.find(FIND_SOURCES).map(source => ({ pos: source.pos, range: 2 })),
     ...room.find(FIND_MINERALS).map(mineral => ({ pos: mineral.pos, range: 1 }))
   ];
   if (room.controller) {
     avoid.push({ pos: room.controller.pos, range: 3 });
   }
-  const storage = findMine(room, STRUCTURE_STORAGE)[0];
   if (storage) {
-    avoid.push({ pos: storage.pos, range: 1 });
+    avoid.push({ pos: storage, range: 1 });
+  }
+  const usable = (x: number, y: number) =>
+    x >= 1 &&
+    x <= 48 &&
+    y >= 1 &&
+    y <= 48 &&
+    terrain.get(x, y) !== TERRAIN_MASK_WALL &&
+    !blocked.has(tileKey(x, y)) &&
+    chebyshev({ x, y }, center) <= LAYOUT_RADIUS;
+
+  // Only layout roads connected to the spawn/storage can serve extensions
+  const roadParent = new Map<number, number>();
+  const queue: Tile[] = [];
+  const visit = (x: number, y: number, parent: number) => {
+    const key = tileKey(x, y);
+    if (!roadParent.has(key) && isLayoutRoad(spawn, x, y) && usable(x, y)) {
+      roadParent.set(key, parent);
+      queue.push({ x, y });
+    }
+  };
+  for (const anchor of storage ? [spawn.pos, storage] : [spawn.pos]) {
+    for (const t of ring(anchor, 1)) {
+      visit(t.x, t.y, -1);
+    }
+  }
+  // The array iterator also visits tiles pushed during the loop (BFS)
+  for (const tile of queue) {
+    for (const t of ring(tile, 1)) {
+      visit(t.x, t.y, tileKey(tile.x, tile.y));
+    }
   }
 
-  const slots: (Tile & { range: number; dist: number })[] = [];
-  for (let dx = -EXTENSION_SEARCH_RANGE; dx <= EXTENSION_SEARCH_RANGE; dx++) {
-    for (let dy = -EXTENSION_SEARCH_RANGE; dy <= EXTENSION_SEARCH_RANGE; dy++) {
-      if ((dx + dy) % 2 !== 0 || (dx === 0 && dy === 0)) {
+  const slots: (Slot & { range: number; dist: number })[] = [];
+  const minX = Math.max(2, Math.floor(center.x - LAYOUT_RADIUS));
+  const minY = Math.max(2, Math.floor(center.y - LAYOUT_RADIUS));
+  for (let x = minX; x <= Math.min(47, center.x + LAYOUT_RADIUS); x++) {
+    for (let y = minY; y <= Math.min(47, center.y + LAYOUT_RADIUS); y++) {
+      if (isLayoutRoad(spawn, x, y) || !usable(x, y) || avoid.some(a => chebyshev(a.pos, { x, y }) <= a.range)) {
         continue;
       }
-      const x = spawn.pos.x + dx;
-      const y = spawn.pos.y + dy;
-      if (!inBuildArea(x, y) || terrain.get(x, y) === TERRAIN_MASK_WALL || occupied.has(tileKey(x, y))) {
-        continue;
+      const road = ring({ x, y }, 1).find(t => roadParent.has(tileKey(t.x, t.y)));
+      if (road) {
+        const range = chebyshev({ x, y }, center);
+        slots.push({ x, y, road: tileKey(road.x, road.y), range, dist: (x - center.x) ** 2 + (y - center.y) ** 2 });
       }
-      if (avoid.some(a => chebyshev(a.pos, { x, y }) <= a.range)) {
-        continue;
-      }
-      // Must touch at least one walkable road tile to be refillable
-      if (!ORTHOGONAL.some(([ox, oy]) => terrain.get(x + ox, y + oy) !== TERRAIN_MASK_WALL)) {
-        continue;
-      }
-      slots.push({ x, y, range: Math.max(Math.abs(dx), Math.abs(dy)), dist: Math.abs(dx) + Math.abs(dy) });
     }
   }
   slots.sort((a, b) => a.range - b.range || a.dist - b.dist);
-  const remaining = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][8] - SystemScript.countExtensions(spawn);
-  return slots.slice(0, Math.max(0, remaining));
+  return { slots, roadParent, reservedSpawns };
 }
 
-function planRoads(spawn: StructureSpawn, extensionSlots: Tile[]): RoadPlan {
-  const room = spawn.room;
-  const terrain = room.getTerrain();
-  const costs = new PathFinder.CostMatrix();
-  for (const slot of extensionSlots) {
-    costs.set(slot.x, slot.y, EXTENSION_SLOT_ROAD_COST);
+// Layout roads needed to reach the first `count` extension slots, from the spawn outwards
+function layoutRoads(layout: BaseLayout, count: number): number[] {
+  const roads: number[] = [];
+  const seen = new Set<number>();
+  for (const slot of layout.slots.slice(0, count)) {
+    const branch: number[] = [];
+    for (let key = slot.road; key !== -1 && !seen.has(key); key = layout.roadParent.get(key) ?? -1) {
+      seen.add(key);
+      branch.push(key);
+    }
+    roads.push(...branch.reverse());
   }
+  return roads;
+}
+
+function planRoads(
+  spawn: StructureSpawn,
+  layout: BaseLayout,
+  extensionCount = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][spawn.room.controller?.level ?? 0] ?? 0
+): RoadPlan {
+  const room = spawn.room;
+  const costs = new PathFinder.CostMatrix();
   const blocking = (structureType: StructureConstant, my: boolean) =>
     structureType !== STRUCTURE_ROAD &&
     structureType !== STRUCTURE_CONTAINER &&
@@ -143,6 +278,25 @@ function planRoads(spawn: StructureSpawn, extensionSlots: Tile[]): RoadPlan {
   for (const object of [...room.find(FIND_SOURCES), ...room.find(FIND_MINERALS)]) {
     costs.set(object.pos.x, object.pos.y, 255);
   }
+  // Extension slots never get roads, even where an old road still stands
+  for (const slot of layout.slots.slice(0, CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][8])) {
+    costs.set(slot.x, slot.y, 255);
+  }
+
+  const tiles: number[] = [];
+  const seen = new Set<number>();
+  const addTile = (x: number, y: number) => {
+    const key = tileKey(x, y);
+    if (x >= 1 && x <= 48 && y >= 1 && y <= 48 && !seen.has(key)) {
+      seen.add(key);
+      tiles.push(key);
+    }
+  };
+  // Base roads first: they are what fillers walk on
+  for (const key of layoutRoads(layout, extensionCount)) {
+    costs.set(key % 50, Math.floor(key / 50), 1);
+    addTile(key % 50, Math.floor(key / 50));
+  }
 
   const origin = room.storage ? room.storage.pos : spawn.pos;
   const targets: { pos: RoomPosition; range: number; sourceId?: Id<Source> }[] = [];
@@ -159,15 +313,6 @@ function planRoads(spawn: StructureSpawn, extensionSlots: Tile[]): RoadPlan {
     targets.push({ pos: tower.pos, range: 1 });
   }
 
-  const tiles: number[] = [];
-  const seen = new Set<number>();
-  const addTile = (x: number, y: number) => {
-    const key = tileKey(x, y);
-    if (x >= 1 && x <= 48 && y >= 1 && y <= 48 && !seen.has(key)) {
-      seen.add(key);
-      tiles.push(key);
-    }
-  };
   const sourceStands = new Map<Id<Source>, Tile>();
 
   // Each path reuses previous ones (cost 1), so the network merges instead of running in parallel
@@ -190,52 +335,164 @@ function planRoads(spawn: StructureSpawn, extensionSlots: Tile[]): RoadPlan {
     }
   }
 
-  // Access roads on the checkerboard gaps around extensions
-  for (const extension of findMine(room, STRUCTURE_EXTENSION)) {
-    for (const [ox, oy] of ORTHOGONAL) {
-      const x = extension.pos.x + ox;
-      const y = extension.pos.y + oy;
-      if (terrain.get(x, y) !== TERRAIN_MASK_WALL && costs.get(x, y) !== 255) {
-        addTile(x, y);
-      }
-    }
-  }
-
   return { tiles, sourceStands };
 }
 
 export const BuildScript = {
   run(spawn: StructureSpawn) {
     const level = spawn.room.controller?.level ?? 0;
-    const occupied = getOccupiedTiles(spawn.room);
-    const extensionSlots = planExtensionSlots(spawn, occupied);
-
-    BuildScript.buildExtensions(spawn, extensionSlots, occupied);
     BuildScript.buildTowers(spawn);
     BuildScript.buildStorage(spawn);
 
     if (level < ROADS_MIN_LEVEL) {
       return;
     }
-    const roadPlan = planRoads(spawn, extensionSlots);
+    const layout = planBaseLayout(spawn);
+    BuildScript.buildSpawns(spawn, layout);
+    const occupied = getOccupiedTiles(spawn.room);
+    for (const t of layout.reservedSpawns) {
+      occupied.add(tileKey(t.x, t.y));
+    }
+    const roadPlan = planRoads(spawn, layout);
+    SystemScript.setPlannedRoads(spawn.room.name, roadPlan.tiles);
     BuildScript.buildLinks(spawn, roadPlan, occupied);
     BuildScript.buildRoads(spawn.room, roadPlan);
   },
-  buildExtensions(spawn: StructureSpawn, slots: Tile[], occupied: Set<number>) {
-    const level = spawn.room.controller?.level ?? 0;
-    let missing = (CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][level] ?? 0) - SystemScript.countExtensions(spawn);
+  // Ghosts the RCL 8 layout (extensions, roads, storage, spawns) and crosses out extensions/roads outside it
+  drawLayout(spawn: StructureSpawn) {
+    const room = spawn.room;
+    let drawing = layoutDrawings.get(room.name);
+    if (!drawing || Game.time - drawing.tick >= LAYOUT_DRAW_REFRESH) {
+      const maxExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][8];
+      const layout = planBaseLayout(spawn);
+      const items: PlannedStructure[] = [
+        ...planRoads(spawn, layout, maxExtensions).tiles.map(key => ({
+          x: key % 50,
+          y: Math.floor(key / 50),
+          type: STRUCTURE_ROAD
+        })),
+        ...layout.slots.slice(0, maxExtensions).map(s => ({ x: s.x, y: s.y, type: STRUCTURE_EXTENSION })),
+        ...layout.reservedSpawns.map(t => ({ x: t.x, y: t.y, type: STRUCTURE_SPAWN }))
+      ];
+      const storage = plannedStoragePos(spawn, getBlockedTiles(room));
+      if (storage) {
+        items.push({ x: storage.x, y: storage.y, type: STRUCTURE_STORAGE });
+      }
+      const planned = new Set(items.map(i => `${i.type}${tileKey(i.x, i.y)}`));
+      const obsolete = room
+        .find(FIND_STRUCTURES)
+        .filter(
+          s =>
+            (s.structureType === STRUCTURE_EXTENSION || s.structureType === STRUCTURE_ROAD) &&
+            !planned.has(`${s.structureType}${tileKey(s.pos.x, s.pos.y)}`)
+        )
+        .map(s => ({ x: s.pos.x, y: s.pos.y }));
+      drawing = { tick: Game.time, items, obsolete };
+      layoutDrawings.set(room.name, drawing);
+    }
 
-    for (const slot of slots) {
+    const visual = room.visual;
+    for (const item of drawing.items) {
+      drawStructure(visual, item.x, item.y, item.type, { opacity: 0.5 });
+    }
+    connectRoads(visual, { opacity: 0.5 });
+    for (const t of drawing.obsolete) {
+      visual.line(t.x - 0.3, t.y - 0.3, t.x + 0.3, t.y + 0.3, { color: "#ff4040" });
+      visual.line(t.x - 0.3, t.y + 0.3, t.x + 0.3, t.y - 0.3, { color: "#ff4040" });
+    }
+    visual.text("Final layout (Memory.showLayout = false to hide)", 1, 1, { align: "left", opacity: 0.8 });
+  },
+  buildSpawns(spawn: StructureSpawn, layout: BaseLayout) {
+    const room = spawn.room;
+    const max = CONTROLLER_STRUCTURES[STRUCTURE_SPAWN][room.controller?.level ?? 0] ?? 0;
+    const count = findMine(room, STRUCTURE_SPAWN).length;
+    const target = layout.reservedSpawns[0];
+    if (count >= max || !target) {
+      return;
+    }
+    const inTheWay = room.lookForAt(LOOK_STRUCTURES, target.x, target.y);
+    // Extensions on the tile are moved away by updateExtensions first
+    if (inTheWay.some(s => s.structureType === STRUCTURE_EXTENSION)) {
+      return;
+    }
+    const road = inTheWay.find(s => s.structureType === STRUCTURE_ROAD);
+    if (road) {
+      road.destroy();
+      return;
+    }
+    room.createConstructionSite(target.x, target.y, STRUCTURE_SPAWN, `${room.name}-${count + 1}`);
+  },
+  // Places missing extensions on the best layout slots, then moves misplaced ones one at a time:
+  // the worst-placed extension is destroyed only when every extension is built and a better slot is free.
+  updateExtensions(spawn: StructureSpawn) {
+    const room = spawn.room;
+    const max = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][room.controller?.level ?? 0] ?? 0;
+    if (max === 0 || room.find(FIND_HOSTILE_CREEPS).length > 0) {
+      return;
+    }
+    const layout = planBaseLayout(spawn);
+    const plannedKeys = new Set(layout.slots.slice(0, max).map(s => tileKey(s.x, s.y)));
+    const extensions = room.find<StructureExtension>(FIND_MY_STRUCTURES, {
+      filter: { structureType: STRUCTURE_EXTENSION }
+    });
+    const sites: ConstructionSite[] = [];
+    for (const site of room.find(FIND_MY_CONSTRUCTION_SITES, { filter: { structureType: STRUCTURE_EXTENSION } })) {
+      // Left over from an older layout
+      if (!plannedKeys.has(tileKey(site.pos.x, site.pos.y)) && site.progress === 0) {
+        site.remove();
+      } else {
+        sites.push(site);
+      }
+    }
+    const taken = new Set([...extensions, ...sites].map(o => tileKey(o.pos.x, o.pos.y)));
+
+    let missing = max - extensions.length - sites.length;
+    for (const slot of layout.slots) {
       if (missing <= 0) {
+        break;
+      }
+      if (taken.has(tileKey(slot.x, slot.y))) {
+        continue;
+      }
+      missing--;
+      const road = room.lookForAt(LOOK_STRUCTURES, slot.x, slot.y).find(s => s.structureType === STRUCTURE_ROAD);
+      if (road) {
+        // The site can only be placed once the road is gone (next update)
+        road.destroy();
+        continue;
+      }
+      if (room.createConstructionSite(slot.x, slot.y, STRUCTURE_EXTENSION) === ERR_FULL) {
         return;
       }
-      const result = spawn.room.createConstructionSite(slot.x, slot.y, STRUCTURE_EXTENSION);
-      if (result === OK) {
-        missing--;
-        occupied.add(tileKey(slot.x, slot.y));
-      } else if (result === ERR_FULL || result === ERR_RCL_NOT_ENOUGH) {
-        return;
+    }
+
+    const storageEnergy = room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
+    if (sites.length > 0 || extensions.length < max || storageEnergy < RELOCATE_MIN_STORAGE) {
+      return;
+    }
+    const bestFree = layout.slots.findIndex(s => !taken.has(tileKey(s.x, s.y)));
+    if (bestFree < 0) {
+      return;
+    }
+    const rank = new Map(layout.slots.map((s, i) => [tileKey(s.x, s.y), i]));
+    // Extensions on a reserved spawn tile go first, then those outside the layout
+    for (const t of layout.reservedSpawns) {
+      rank.set(tileKey(t.x, t.y), Infinity);
+    }
+    let worst: StructureExtension | undefined;
+    let worstRank = -1;
+    for (const extension of extensions) {
+      const r = rank.get(tileKey(extension.pos.x, extension.pos.y)) ?? Number.MAX_SAFE_INTEGER;
+      if (r > worstRank) {
+        worst = extension;
+        worstRank = r;
       }
+    }
+    if (worst && worstRank > bestFree && worst.destroy() === OK) {
+      const target = layout.slots[bestFree];
+      console.log(
+        `[${Game.time}] ${room.name} 🔨 moving extension ${worst.pos.x},${worst.pos.y} -> ${target.x},${target.y}`
+      );
     }
   },
   // Priority: storage hub, controller, then sources (farthest first)
@@ -351,12 +608,16 @@ export const BuildScript = {
     }
   },
   buildStorage(spawn: StructureSpawn) {
-    if (!spawn.room.controller || spawn.room.controller.level < 4) {
+    if (
+      !spawn.room.controller ||
+      spawn.room.controller.level < 4 ||
+      findMine(spawn.room, STRUCTURE_STORAGE).length > 0
+    ) {
       return;
     }
-    const storage = SystemScript.countStorage(spawn);
-    if (storage === 0) {
-      SystemScript.createStructure(spawn, -4, 5, -10, 10, STRUCTURE_STORAGE);
+    const pos = plannedStoragePos(spawn, getBlockedTiles(spawn.room));
+    if (pos) {
+      spawn.room.createConstructionSite(pos.x, pos.y, STRUCTURE_STORAGE);
     }
   },
   buildTowers(spawn: StructureSpawn) {
