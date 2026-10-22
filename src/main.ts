@@ -14,21 +14,11 @@ import { rolePioneer } from "role.pioneer";
 import { roleScout } from "role.scout";
 import { roleUpgrader } from "role.upgrader";
 
+const CREEP_NAME_PREFIX = "ESCALATOR";
 const REPORT_INTERVAL = 20;
 
 declare global {
-  /*
-    Example types, expand on these or remove them and add your own.
-    Note: Values, properties defined here do no fully *exist* by this type definiton alone.
-          You must also give them an implemention if you would like to use them. (ex. actually setting a `role` property in a Creeps memory)
-
-    Types added in this `global` block are in an ambient, global context. This is needed because `main.ts` is a module file (uses import or export).
-    Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
-  */
-  // Memory extension samples
   interface Memory {
-    uuid: number;
-    log: any;
     // Set from the game console to draw the final base layout
     showLayout?: boolean;
     // Last seen owner of each room, used to route around other players' bases
@@ -103,8 +93,6 @@ function updateCreeps() {
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
-  const staticName = "ESCALATOR";
-
   SystemScript.cleanMemory();
   if (Game.time % 100 === 0) {
     Traffic.cleanup();
@@ -124,7 +112,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
     // Spawns busy renewing a creep are left alone
     const idle = spawns.find(spawn => !spawn.spawning && !CreepScript.isRenewingAt(spawn));
     if (idle) {
-      CreepScript.spawnCreeps(idle, staticName);
+      CreepScript.spawnCreeps(idle, CREEP_NAME_PREFIX);
     }
 
     if (Game.time % 100 === 0) {

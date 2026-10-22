@@ -2,6 +2,8 @@ import _ from "lodash";
 
 // Scripts annex
 const REPAIR_CACHE_TTL = 5;
+const TOWER_REPAIR_MIN_ENERGY = 500;
+const ALLY_NAME_FRAGMENT = "scala";
 export const LINK_SEND_THRESHOLD = 400;
 
 export interface RoomLinks {
@@ -24,7 +26,7 @@ const SAFE_MODE_GUARDED: string[] = [STRUCTURE_SPAWN, STRUCTURE_TOWER];
 
 // Name-based ally whitelist is intentional: spares creeps named "*scala*" (spoofable, accepted risk)
 function isAlly(creep: Creep): boolean {
-  return creep.name.toLowerCase().includes("scala");
+  return creep.name.toLowerCase().includes(ALLY_NAME_FRAGMENT);
 }
 
 function needsTowerRepair(structure: Structure): boolean {
@@ -239,6 +241,7 @@ export const SystemScript = {
           return object.structureType === STRUCTURE_TOWER;
         }
       });
+      const claimedTargets = new Set<Id<Structure>>();
       // EACH TOWER
       for (const tower of towers) {
         // ATTACK
@@ -247,18 +250,27 @@ export const SystemScript = {
         });
         if (closestHostile) {
           tower.attack(closestHostile);
+          continue;
+        }
+        if (tower.store.getUsedCapacity(RESOURCE_ENERGY) <= TOWER_REPAIR_MIN_ENERGY) {
+          continue;
         }
         // REPAIR
         const cached = towerRepairCache.get(tower.id);
-        let target = cached && Game.time - cached.tick < REPAIR_CACHE_TTL ? Game.getObjectById(cached.targetId) : null;
+        const cachedTarget =
+          cached && Game.time - cached.tick < REPAIR_CACHE_TTL ? Game.getObjectById(cached.targetId) : null;
+        let target =
+          cachedTarget && !claimedTargets.has(cachedTarget.id) && needsTowerRepair(cachedTarget) ? cachedTarget : null;
         if (!target || !needsTowerRepair(target)) {
-          target = tower.pos.findClosestByRange(FIND_STRUCTURES, { filter: needsTowerRepair });
-          if (target) {
-            towerRepairCache.set(tower.id, { targetId: target.id, tick: Game.time });
-          }
+          target = tower.pos.findClosestByRange(FIND_STRUCTURES, {
+            filter: structure => !claimedTargets.has(structure.id) && needsTowerRepair(structure)
+          });
         }
         if (target) {
-          tower.repair(target);
+          if (tower.repair(target) === OK) {
+            claimedTargets.add(target.id);
+            towerRepairCache.set(tower.id, { targetId: target.id, tick: Game.time });
+          }
         }
       }
     }
