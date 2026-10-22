@@ -43,6 +43,7 @@ async function state() {
     }
     const sites = objects.filter(o => o.type === "constructionSite" && o.user === me._id);
     console.log(`Construction sites: ${sites.length}`);
+    for (const s of sites) console.log(`  ${s.structureType} @${s.x},${s.y} ${s.progress}/${s.progressTotal}`);
     for (const o of objects.filter(o => o.type === "energy" || o.type === "source")) {
       const amount = o.type === "energy" ? `${o.resourceType ?? "energy"} ${o.amount ?? o.energy}` : `${o.energy}/${o.energyCapacity}`;
       console.log(`${o.type} @${o.x},${o.y} ${amount}`);
