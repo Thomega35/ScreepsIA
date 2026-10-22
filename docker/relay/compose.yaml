@@ -1,0 +1,8 @@
+# Example for the homelab: copy this file and a .env next to it, then `docker compose up -d`
+services:
+  screeps-relay:
+    image: ghcr.io/thomega35/screeps-relay:latest
+    container_name: screeps-relay
+    restart: unless-stopped
+    # SCREEPS_TOKEN, SCREEPS_SHARD (default shard3), WEBHOOK_URL
+    env_file: .env

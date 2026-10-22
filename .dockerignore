@@ -1,0 +1,4 @@
+# Allowlist: only the relay files enter the image build context (keeps .env and node_modules out)
+*
+!scripts/relay.mjs
+!docker/relay/package.json
