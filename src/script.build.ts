@@ -354,9 +354,10 @@ export const BuildScript = {
       occupied.add(tileKey(t.x, t.y));
     }
     const roadPlan = planRoads(spawn, layout);
+    const finalRoadPlan = planRoads(spawn, layout, CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][8]);
     SystemScript.setPlannedRoads(spawn.room.name, roadPlan.tiles);
     BuildScript.buildLinks(spawn, roadPlan, occupied);
-    BuildScript.buildRoads(spawn.room, roadPlan);
+    BuildScript.buildRoads(spawn.room, roadPlan, finalRoadPlan);
   },
   // Ghosts the RCL 8 layout (extensions, roads, storage, spawns) and crosses out extensions/roads outside it
   drawLayout(spawn: StructureSpawn) {
@@ -553,17 +554,25 @@ export const BuildScript = {
       }
     }
   },
-  // Places road sites in plan order within budget, and drops untouched sites outside the plan
-  buildRoads(room: Room, plan: RoadPlan) {
+  // Places road sites in plan order, drops untouched off-plan sites, and clears built roads outside the final layout
+  buildRoads(room: Room, plan: RoadPlan, finalPlan: RoadPlan) {
     const roads = new Set<number>();
     const blocked = new Set<number>();
+    const finalRoads = new Set(finalPlan.tiles);
+    let removedRoads = 0;
     for (const structure of room.find(FIND_STRUCTURES)) {
       const key = tileKey(structure.pos.x, structure.pos.y);
       if (structure.structureType === STRUCTURE_ROAD) {
         roads.add(key);
+        if (!finalRoads.has(key) && structure.destroy() === OK) {
+          removedRoads++;
+        }
       } else if (structure.structureType !== STRUCTURE_RAMPART && structure.structureType !== STRUCTURE_CONTAINER) {
         blocked.add(key);
       }
+    }
+    if (removedRoads > 0) {
+      console.log(`[${Game.time}] ${room.name} 🔨 scheduled removal of ${removedRoads} obsolete roads`);
     }
     const roadSites = new Map<number, ConstructionSite>();
     for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
