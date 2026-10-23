@@ -1,6 +1,7 @@
-import { CreepScript } from "script.creep";
-import { LINK_SEND_THRESHOLD, SystemScript } from "script.system";
+import { CreepScript, getGrabberPlan } from "script.creep";
+import { LINK_SEND_THRESHOLD, SystemScript, hasEnergySurplus } from "script.system";
 import _ from "lodash";
+import { park } from "script.parking";
 
 // Complex energy grabber creep (need miner to work)
 export const roleGrabber = {
@@ -20,7 +21,10 @@ export const roleGrabber = {
     // A full hub blocks the source links and makes miners overflow on the floor, so drain it before scavenging
     if (storage) {
       const { hub, controller } = SystemScript.getLinks(creep.room);
-      const controllerNeeds = controller && controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD;
+      const controllerNeeds =
+        hasEnergySurplus(creep.room) &&
+        controller &&
+        controller.store.getFreeCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD;
       if (hub && !controllerNeeds && hub.store.getUsedCapacity(RESOURCE_ENERGY) >= LINK_SEND_THRESHOLD / 2) {
         if (creep.withdraw(hub, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
           creep.moveTo(hub);
@@ -29,9 +33,18 @@ export const roleGrabber = {
       }
     }
     let roomObject: Tombstone | Ruin | Resource | null = null;
-    roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
-      filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
-    });
+    const source = getGrabberPlan(creep.room).assignments.get(creep.name);
+    if (source) {
+      roomObject = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+        filter: resource =>
+          resource.resourceType === RESOURCE_ENERGY && resource.amount > 100 && resource.pos.inRangeTo(source, 2)
+      });
+    }
+    if (!roomObject) {
+      roomObject = creep.pos.findClosestByRange(FIND_RUINS, {
+        filter: ruin => ruin.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+      });
+    }
     if (!roomObject) {
       roomObject = creep.pos.findClosestByRange(FIND_TOMBSTONES, {
         filter: tombstone => tombstone.store.getUsedCapacity(undefined) > 0
@@ -43,7 +56,7 @@ export const roleGrabber = {
       });
     }
     if (!roomObject) {
-      CreepScript.park(creep);
+      park(creep);
       return;
     }
     // Withdraw from the tombstone or ruin
@@ -108,7 +121,7 @@ export const roleGrabber = {
     // Send energy to emptying structure
     const emptyingStructure = CreepScript.getEmptyingStructure(creep);
     if (!emptyingStructure) {
-      CreepScript.park(creep);
+      park(creep);
       return;
     }
 

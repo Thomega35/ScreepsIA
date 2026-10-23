@@ -1,5 +1,4 @@
-import { LINK_SEND_THRESHOLD, SystemScript, homeRoomName } from "script.system";
-import { ExpansionScript } from "script.expansion";
+import { LINK_SEND_THRESHOLD, SystemScript, hasEnergySurplus, homeRoomName } from "script.system";
 import _ from "lodash";
 
 function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstant[] {
@@ -8,7 +7,6 @@ function repeatBody(pattern: BodyPartConstant[], count: number): BodyPartConstan
 }
 
 const RENEW_START_TTL = 150;
-const PARK_RANGE = 5;
 const RENEW_STOP_TTL = 1300;
 const RENEW_MIN_STORAGE = 10000;
 // Miners gain nothing past 6 WORK (source regen cap)
@@ -65,6 +63,113 @@ function isFullSize(creep: Creep, room: Room): boolean {
   return bodyCost(creep.body) >= Math.min(room.energyCapacityAvailable, roleMaxCost(creep.memory.role, room)) * 0.9;
 }
 
+function roleLimits(level: number, construction: boolean, needsHarvesters: boolean): Record<string, number> {
+  return {
+    harvester: needsHarvesters ? 2 : 0,
+    grabber: level <= 3 ? 3 : level <= 7 ? 2 : 1,
+    upgrader: level === 1 ? 8 : level <= 3 ? (construction ? 3 : 6) : level === 4 ? 2 : 1,
+    builder: !construction ? 0 : level <= 3 ? 3 : level === 4 ? 2 : 1
+  };
+}
+
+interface GrabberPlan {
+  limit: number;
+  assignments: Map<string, Source>;
+}
+
+const grabberPlans = new Map<string, { tick: number; plan: GrabberPlan }>();
+const haulingPaths = new Map<string, { tick: number; path: PathStep[] }>();
+
+export function getGrabberPlan(room: Room): GrabberPlan {
+  const cached = grabberPlans.get(room.name);
+  if (cached?.tick === Game.time) {
+    return cached.plan;
+  }
+  const level = room.controller?.level ?? 0;
+  const baseline = roleLimits(level, false, false).grabber;
+  const plan: GrabberPlan = { limit: baseline, assignments: new Map() };
+  const depot =
+    room.storage ?? room.find(FIND_MY_SPAWNS).sort((first, second) => first.name.localeCompare(second.name))[0];
+  if (!depot) {
+    return plan;
+  }
+  const creeps = Object.values(Game.creeps).filter(creep => homeRoomName(creep) === room.name);
+  const miners = creeps.filter(creep => creep.memory.role === "miner");
+  const grabbers = creeps.filter(creep => creep.memory.role === "grabber");
+  const energy = Math.min(room.energyCapacityAvailable, MAX_COST.grabber);
+  const carryParts = energy < 1800 ? Math.floor(energy / 100) : Math.floor(energy / 150) * 2;
+  const capacity = Math.max(CARRY_CAPACITY, carryParts * CARRY_CAPACITY);
+  const terrain = room.getTerrain();
+  const roads = new Set(
+    room
+      .find(FIND_STRUCTURES)
+      .filter(structure => structure.structureType === STRUCTURE_ROAD)
+      .map(road => road.pos.y * 50 + road.pos.x)
+  );
+  const links = SystemScript.getLinks(room).sources;
+  const routes = room.find(FIND_SOURCES).flatMap(source => {
+    const sourceMiners = miners.filter(miner => miner.memory.sourceId === source.id);
+    if (
+      links.some(link => link.pos.inRangeTo(source, 2)) &&
+      sourceMiners.some(miner => miner.getActiveBodyparts(CARRY) > 0)
+    ) {
+      return [];
+    }
+    const key = `${room.name}:${depot.id}:${source.id}`;
+    let cachedPath = haulingPaths.get(key);
+    if (!cachedPath || Game.time - cachedPath.tick >= 100) {
+      cachedPath = { tick: Game.time, path: room.findPath(depot.pos, source.pos, { range: 1, ignoreCreeps: true }) };
+      haulingPaths.set(key, cachedPath);
+    }
+    if (cachedPath.path.length === 0 && !depot.pos.isNearTo(source)) {
+      return [];
+    }
+    const loadedWeight = energy < 1800 ? 1 : 2;
+    const roundTrip = cachedPath.path.reduce((ticks, step) => {
+      const road = roads.has(step.y * 50 + step.x);
+      const swamp = terrain.get(step.x, step.y) === TERRAIN_MASK_SWAMP;
+      return ticks + 1 + (road ? 1 : loadedWeight * (swamp ? 5 : 1));
+    }, 4);
+    const production = source.energyCapacity / ENERGY_REGEN_TIME;
+    const work = sourceMiners.reduce((total, miner) => total + miner.getActiveBodyparts(WORK), 0);
+    const rate = sourceMiners.length > 0 ? Math.min(production, work * HARVEST_POWER) : production;
+    return [{ source, required: rate * roundTrip * 1.1, assigned: 0 }];
+  });
+  plan.limit = Math.max(
+    baseline,
+    routes.reduce((total, route) => total + Math.ceil(route.required / capacity), 0)
+  );
+  const ordered = grabbers.sort((first, second) => first.name.localeCompare(second.name));
+  for (const grabber of ordered) {
+    const route = routes.find(
+      candidate => candidate.source.id === grabber.memory.sourceId && candidate.assigned < candidate.required
+    );
+    if (route) {
+      route.assigned += grabber.store.getCapacity(RESOURCE_ENERGY);
+      plan.assignments.set(grabber.name, route.source);
+    }
+  }
+  for (const grabber of ordered) {
+    if (plan.assignments.has(grabber.name)) {
+      continue;
+    }
+    const route = routes.reduce<(typeof routes)[number] | undefined>(
+      (best, candidate) =>
+        !best || candidate.required - candidate.assigned > best.required - best.assigned ? candidate : best,
+      undefined
+    );
+    if (route) {
+      route.assigned += grabber.store.getCapacity(RESOURCE_ENERGY);
+      plan.assignments.set(grabber.name, route.source);
+      grabber.memory.sourceId = route.source.id;
+    } else {
+      delete grabber.memory.sourceId;
+    }
+  }
+  grabberPlans.set(room.name, { tick: Game.time, plan });
+  return plan;
+}
+
 // True once a replacement spawned now would reach the source just as this miner dies
 function isMinerExpiring(miner: Creep, spawn: StructureSpawn): boolean {
   if (miner.spawning || miner.ticksToLive === undefined) {
@@ -117,7 +222,7 @@ export const CreepScript = {
     });
   },
   spawnGrabber(spawn: StructureSpawn, saticName: string) {
-    const energyAvailable = spawn.room.energyAvailable;
+    const energyAvailable = Math.min(spawn.room.energyAvailable, MAX_COST.grabber);
     let bodyParts: BodyPartConstant[];
     if (energyAvailable < 1800) {
       bodyParts = repeatBody([CARRY, MOVE], Math.floor(energyAvailable / 100));
@@ -157,14 +262,14 @@ export const CreepScript = {
       memory: { role: "builder", working: false, spawnId: spawn.id, room: spawn.room.name }
     });
   },
-  spawnCreeps(spawn: StructureSpawn, saticName: string) {
+  spawnCreeps(spawn: StructureSpawn, saticName: string): boolean {
     if (spawn.spawning !== null) {
-      return;
+      return false;
     }
 
     const sources = spawn.room.find(FIND_SOURCES);
     if (sources.length === 0) {
-      return;
+      return false;
     }
     const energyAvailable = spawn.room.energyAvailable;
     const creepsByRole = _.groupBy(
@@ -186,27 +291,21 @@ export const CreepScript = {
     const ready = (minCost: number, role: string) =>
       energyAvailable >= minCost && (emergency || energyAvailable >= Math.min(capacity, roleMaxCost(role, spawn.room)));
 
-    const needsHarvester = (miners.length === 0 || grabbers.length === 0) && harvesters.length < 2;
+    const limits = roleLimits(contrlLvl, isConstructionSite, miners.length === 0 || grabbers.length === 0);
+    const needsHarvester = harvesters.length < limits.harvester;
     // Expiring miners don't count, so their replacement spawns before they die
     const activeMiners = miners.filter(creep => !isMinerExpiring(creep, spawn));
     const needsMiner =
       activeMiners.length <= grabbers.length &&
       ((contrlLvl <= 4 && activeMiners.length < 3) || (contrlLvl >= 5 && activeMiners.length < 2));
-    const grabberLimit = contrlLvl <= 3 ? 3 : 2;
+    const grabberLimit = getGrabberPlan(spawn.room).limit;
     // Emergency grabbers are tiny: allow one extra so a full-size one can replace it
     const fullGrabbers = grabbers.filter(creep => isFullSize(creep, spawn.room)).length;
     const needsGrabber =
-      grabbers.length < grabberLimit || (fullGrabbers < grabberLimit && grabbers.length <= grabberLimit);
-    const needsUpgrader =
-      (contrlLvl === 1 && upgraders.length < 8) ||
-      (contrlLvl <= 3 && ((!isConstructionSite && upgraders.length < 6) || upgraders.length < 3)) ||
-      (contrlLvl === 4 && upgraders.length < 2) ||
-      (contrlLvl >= 5 && upgraders.length < 1);
-    const needsBuilder =
-      isConstructionSite &&
-      ((contrlLvl <= 3 && builders.length < 3) ||
-        (contrlLvl <= 4 && builders.length < 2) ||
-        (contrlLvl >= 5 && builders.length < 1));
+      !grabbers.some(creep => creep.spawning) &&
+      (grabbers.length < grabberLimit || (fullGrabbers < grabberLimit && grabbers.length <= grabberLimit));
+    const needsUpgrader = upgraders.length < limits.upgrader;
+    const needsBuilder = builders.length < limits.builder;
 
     if (needsHarvester) {
       if (ready(250, "harvester")) CreepScript.spawnHarvester(spawn, saticName);
@@ -227,8 +326,9 @@ export const CreepScript = {
     } else if (needsUpgrader) {
       if (ready(250, "upgrader")) CreepScript.spawnUpgrader(spawn, saticName);
     } else {
-      ExpansionScript.spawnCreeps(spawn, saticName);
+      return true;
     }
+    return false;
   },
   isRenewingAt(spawn: StructureSpawn): boolean {
     return spawn.pos.findInRange(FIND_MY_CREEPS, 1, { filter: creep => creep.memory.renewing }).length > 0;
@@ -249,6 +349,31 @@ export const CreepScript = {
       creep.memory.renewing = false;
       return false;
     }
+    const home = homeRoomName(creep);
+    const room = Game.rooms[home] ?? spawn.room;
+    const roomCreeps = Object.values(Game.creeps).filter(candidate => homeRoomName(candidate) === home);
+    const limits = roleLimits(
+      room.controller?.level ?? 0,
+      room.find(FIND_CONSTRUCTION_SITES).length > 0,
+      !roomCreeps.some(candidate => candidate.memory.role === "miner") ||
+        !roomCreeps.some(candidate => candidate.memory.role === "grabber")
+    );
+    const limit = creep.memory.role === "grabber" ? getGrabberPlan(room).limit : limits[creep.memory.role];
+    if (limit !== undefined) {
+      const retained = roomCreeps
+        .filter(candidate => candidate.memory.role === creep.memory.role)
+        .sort(
+          (first, second) =>
+            bodyCost(second.body) - bodyCost(first.body) ||
+            (second.ticksToLive ?? CREEP_LIFE_TIME) - (first.ticksToLive ?? CREEP_LIFE_TIME) ||
+            first.name.localeCompare(second.name)
+        )
+        .slice(0, limit);
+      if (!retained.includes(creep)) {
+        creep.memory.renewing = false;
+        return false;
+      }
+    }
     if (!creep.memory.renewing) {
       const storageEnergy = spawn.room.storage?.store.getUsedCapacity(RESOURCE_ENERGY) ?? 0;
       // Only renew creeps at least as good as what we would spawn today
@@ -257,7 +382,9 @@ export const CreepScript = {
         creep.memory.role === "upgrader" &&
         SystemScript.getLinks(spawn.room).controller !== undefined &&
         creep.getActiveBodyparts(CARRY) > LINK_UPGRADER_CARRY;
-      const worthIt = !outdatedUpgrader && isFullSize(creep, spawn.room);
+      // Idle builders are left to expire; a new one is spawned when sites appear
+      const idleBuilder = creep.memory.role === "builder" && spawn.room.find(FIND_MY_CONSTRUCTION_SITES).length === 0;
+      const worthIt = !outdatedUpgrader && !idleBuilder && isFullSize(creep, spawn.room);
       if (storageEnergy < RENEW_MIN_STORAGE || !worthIt) {
         return false;
       }
@@ -278,45 +405,6 @@ export const CreepScript = {
     }
     creep.say("♻️");
     return true;
-  },
-  // Idle creeps step off roads, construction sites and spawn access tiles onto the closest free tile
-  park(creep: Creep) {
-    const spawns = creep.room.find(FIND_MY_SPAWNS);
-    const nearSpawn = (px: number, py: number) =>
-      spawns.some(s => Math.max(Math.abs(s.pos.x - px), Math.abs(s.pos.y - py)) <= 1);
-    const onRoad = creep.pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_ROAD);
-    if (!onRoad && creep.pos.lookFor(LOOK_CONSTRUCTION_SITES).length === 0 && !nearSpawn(creep.pos.x, creep.pos.y)) {
-      return;
-    }
-    const { x, y } = creep.pos;
-    const taken = new Set<number>();
-    const area = creep.room.lookAtArea(
-      Math.max(1, y - PARK_RANGE),
-      Math.max(1, x - PARK_RANGE),
-      Math.min(48, y + PARK_RANGE),
-      Math.min(48, x + PARK_RANGE),
-      true
-    );
-    for (const item of area) {
-      if (item.type !== LOOK_TERRAIN || item.terrain === "wall") {
-        taken.add(item.y * 50 + item.x);
-      }
-    }
-    for (let range = 1; range <= PARK_RANGE; range++) {
-      for (let dx = -range; dx <= range; dx++) {
-        for (let dy = -range; dy <= range; dy++) {
-          const px = x + dx;
-          const py = y + dy;
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== range || px < 1 || px > 48 || py < 1 || py > 48) {
-            continue;
-          }
-          if (!taken.has(py * 50 + px) && !nearSpawn(px, py)) {
-            creep.moveTo(px, py);
-            return;
-          }
-        }
-      }
-    }
   },
   doNotDisturb(creep: Creep) {
     if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
@@ -393,7 +481,7 @@ export const CreepScript = {
     }
 
     // Hub link forwards energy to the controller link
-    if (!emptyingStructure) {
+    if (!emptyingStructure && hasEnergySurplus(creep.room)) {
       const { hub, controller } = SystemScript.getLinks(creep.room);
       if (
         hub &&

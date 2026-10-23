@@ -1,5 +1,6 @@
-import { ExpansionScript, routeCost } from "script.expansion";
+import { ExpansionScript } from "script.expansion";
 import { ScoutScript } from "script.scouting";
+import { routeCost } from "script.routing";
 
 const MAX_PICKS_PER_TICK = 5;
 

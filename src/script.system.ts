@@ -5,6 +5,8 @@ const REPAIR_CACHE_TTL = 5;
 const TOWER_REPAIR_MIN_ENERGY = 500;
 const ALLY_NAME_FRAGMENT = "scala";
 export const LINK_SEND_THRESHOLD = 400;
+// Below this, stored energy is kept for spawning/towers instead of upgrading
+const STORAGE_RESERVE = 200000;
 
 export interface RoomLinks {
   hub?: StructureLink;
@@ -44,6 +46,11 @@ function needsTowerRepair(structure: Structure): boolean {
 // Room the creep belongs to (creeps spawned before `room` existed fall back to their spawn's room)
 export function homeRoomName(creep: Creep): string {
   return creep.memory.room ?? Game.getObjectById(creep.memory.spawnId)?.room.name ?? creep.room.name;
+}
+
+// Rooms without storage have nothing to save, so they always spend
+export function hasEnergySurplus(room: Room): boolean {
+  return !room.storage || room.storage.store.getUsedCapacity(RESOURCE_ENERGY) >= STORAGE_RESERVE;
 }
 
 export const SystemScript = {
@@ -174,12 +181,15 @@ export const SystemScript = {
       const { hub, controller, sources } = SystemScript.getLinks(room);
       let controllerFree = controller ? controller.store.getFreeCapacity(RESOURCE_ENERGY) : 0;
       let hubFree = hub ? hub.store.getFreeCapacity(RESOURCE_ENERGY) : 0;
-      for (const link of sources) {
+      const surplus = hasEnergySurplus(room);
+      for (const [i, link] of sources.entries()) {
         const energy = link.store.getUsedCapacity(RESOURCE_ENERGY);
         if (link.cooldown > 0 || energy < LINK_SEND_THRESHOLD) {
           continue;
         }
-        if (controller && controllerFree >= LINK_SEND_THRESHOLD) {
+        // Short on storage: only one source feeds the upgrader, the others refill storage
+        const mayFeedController = surplus || !hub || i === 0;
+        if (controller && mayFeedController && controllerFree >= LINK_SEND_THRESHOLD) {
           const amount = Math.min(energy, controllerFree);
           if (link.transferEnergy(controller, amount) === OK) {
             controllerFree -= amount;
@@ -191,7 +201,7 @@ export const SystemScript = {
           }
         }
       }
-      if (hub && controller && hub.cooldown === 0 && controllerFree >= LINK_SEND_THRESHOLD) {
+      if (surplus && hub && controller && hub.cooldown === 0 && controllerFree >= LINK_SEND_THRESHOLD) {
         const amount = Math.min(hub.store.getUsedCapacity(RESOURCE_ENERGY), controllerFree);
         if (amount >= LINK_SEND_THRESHOLD / 2) {
           hub.transferEnergy(controller, amount);

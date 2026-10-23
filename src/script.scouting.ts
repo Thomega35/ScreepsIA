@@ -1,4 +1,4 @@
-import { myUsername, routeCost } from "script.expansion";
+import { myUsername, routeCost } from "script.routing";
 
 // In-game version of scripts/find-base.mjs: scouts record room intel, then the best room is picked automatically
 const SCOUT_RADIUS = 6;

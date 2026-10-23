@@ -1,5 +1,6 @@
-import { CreepScript } from "script.creep";
+import { myUsername, routeCost } from "script.routing";
 import { ScoutScript } from "script.scouting";
+import { park } from "script.parking";
 
 // Claiming a new room: set Memory.claim = { room, x, y } (works without vision) or place a flag named "claim",
 // at the spot of the new room's first spawn. The strongest owned rooms send a claimer, then pioneers that build the spawn.
@@ -29,29 +30,6 @@ function spawnExpansionCreep(spawn: StructureSpawn, body: BodyPartConstant[], na
     spawnedThisTick.roles.push(memory.role);
   }
   return result;
-}
-
-export function myUsername(): string | undefined {
-  return Object.values(Game.spawns)[0]?.owner.username;
-}
-
-// Highways are never owned and are the safest roads; other players' rooms and keeper rooms are never crossed
-export function routeCost(roomName: string): number {
-  const owner = Memory.roomOwners?.[roomName];
-  if (owner && owner !== myUsername()) {
-    return Infinity;
-  }
-  const match = /^[WE](\d+)[NS](\d+)$/.exec(roomName);
-  if (!match) {
-    return Infinity;
-  }
-  const h = Number(match[1]) % 10;
-  const v = Number(match[2]) % 10;
-  if (h === 0 || v === 0) {
-    return 1;
-  }
-  const keeper = h >= 4 && h <= 6 && v >= 4 && v <= 6 && !(h === 5 && v === 5);
-  return keeper ? Infinity : 2.5;
 }
 
 function canClaimMore(): boolean {
@@ -263,7 +241,7 @@ export const ExpansionScript = {
       if (route === ERR_NO_PATH || route.length === 0) {
         delete creep.memory.nextRoom;
         creep.say("no route");
-        CreepScript.park(creep);
+        park(creep);
         return true;
       }
       creep.memory.routeFrom = creep.room.name;

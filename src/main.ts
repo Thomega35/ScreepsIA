@@ -112,7 +112,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
     // Spawns busy renewing a creep are left alone
     const idle = spawns.find(spawn => !spawn.spawning && !CreepScript.isRenewingAt(spawn));
     if (idle) {
-      CreepScript.spawnCreeps(idle, CREEP_NAME_PREFIX);
+      if (CreepScript.spawnCreeps(idle, CREEP_NAME_PREFIX)) {
+        ExpansionScript.spawnCreeps(idle, CREEP_NAME_PREFIX);
+      }
     }
 
     if (Game.time % 100 === 0) {
